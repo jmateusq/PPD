@@ -2,33 +2,26 @@
 #define CONFIGURACAO_H
 
 class Contexto {
-    private:
-    int dias = 5;
-    int turnos = 3;
-    int maxIteracoes = 5000; 
-    int aulasPorTurno = 2; 
+private:
+    int dias;
+    int turnos;
+    int maxIteracoes; 
+    int aulasPorTurno; 
 
     // Função auxiliar para calcular quantidade de slots
-    public(int dias, int turnos, int maxIteracoes, int aulasPorTurno);
-        : dias(), turnos(), maxIteracoes(), aulasPorTurno() {}
+public:
+    Contexto();
+    Contexto(int dias, int turnos, int maxIteracoes, int aulasTurno);
     
-    int getDias () const {
-        return this->dias;
-    }
-    int getTurnos () const {
-        return this->turnos;
-    }
+    int getDias () const;
+    int getTurnos () const;
 
-    int getMaxIteracao () const {
-        return this->maxIteracoes;
-    }
+    int getMaxIteracao () const;
 
-    int getAulaTurno() const{
-        return this->aulasPorTurno;
-    }
-    int getTotalSlots() const {
-        return dias * turnos * aulasPorTurno; 
-    }
+    int getAulaTurno() const;
+
+    int getTotalSlots() const;
+
 };
 
 #endif
