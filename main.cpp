@@ -7,7 +7,10 @@ using namespace std;
 
 int DIAS = 5; // PADRÃO
 int TURNOS = 6; // PADRÃO {(8H-10), (10H-12H), (14H-16H), (16H-18H), (19H-21H), (21H-23H)}
+int AULAS_MAT = 2 // qdd de aulas por turno
 int SLOTS_TOTAL = 0; // depende do usuário SLOTS_TOTAL = DIAS * TURNOS
+
+int MAX_ITERACAO == 5000; // PADRÃO
 
 int main() {
     int opcao;
@@ -15,9 +18,9 @@ int main() {
 
     cout << "Escolha uma opção do catálogo" << endl;
     cout << " 1 - Cadastrar uma matéria " << endl;
-    cout << " 2 - Escolher quantos dias e quantos turnos estudar" << endl;
-    cout << " 4 - Mostrar grade" << endl;
-    cout << " 5 - Sair" << endl;
+    cout << " 2 - Escolher quantos dias/turnos estudar e quantas aulas dessa matéria" << endl;
+    cout << " 3 - Número de testes do algoritmo" << endl;
+    cout << " 4 - Sair" << endl;
 
     switch (opcao){
       case 1:
@@ -45,25 +48,41 @@ int main() {
         cout << "MATERIA " << nomeMat << "ADICIONADA COM SUCESSO" << endl;
       break;
       case 2:
-            int diasEst;
-            int turnoEst;
-
             cout << "Quantos dias você pretende estudar? (seg-sex): ";
-                if(diasEst < 0 || diasEst > 5){
-                    cin >> diasEst;
+                if(DIAS < 0 || DIAS > 5){
+                    cin >> DIAS;
                 }
             cout << "Quantos turnos você pretende estudar? (manhã:8h-12h/2 turnos) (terça:14h-18h/2 turnos) (noite:19h-23h/2 turnos): ";
-                if (turnoEst < 0 || turnoEst > 6){
-                    cin >> turnoEst;
+                if (TURNOS < 0 || TURNOS > 6){
+                    cin >> TURNOS;
                 }
-
+            cout << "Quantas aulas dessa matéria você quer ter na semana?: ";
+                if (AULAS_MAT < 0 || AULAS_MAT > 6) {
+                    cin >> AULAS_MAT;
+                }
+            
+            // Atualiza os valores que foram definidos lá em cima.
+            SLOTS_TOTAL = DIAS * TURNOS * AULAS_MAT;
+            cout << "CONFIGURAÇÃO DEFINIDA: " << DIAS << " dias, " << TURNOS << " turnos.\n";
+            cout << "TOTAL DE AULAS NA SEMANA: " << SLOTS_TOTAL << "\n\n";
       break;
       case 3:
+            cout << "DEFINIR PRECISÃO DO ALGORITMO (ITERAÇÕES)" << endl;
+            cout << "PADRAO: 5000. RECOMENDADO ENTRE 1000 E 5000." << endl;
+
+            cout << "DIGITE O NÚMERO DE ITERAÇÕES: ";
+            cin >> MAX_ITERACAO;
+
+            while (MAX < 0){
+                cout << "VALOR INVÁLIDO! DIGITE UM NÚMERO MAIOR QUE 0: ";
+                cin >> MAX_ITERACAO;
+            }
+
+            cout << "CONFIGURADO PARA RODAR " << MAX_ITERACAO << " VEZES" << endl;
       break;
       case 4:
+            return 0;
       break;
-      case 5:
-      break;  
     }
 
     // Definição do Catálogo de Matérias

@@ -4,7 +4,6 @@
 #include <vector>
 #include <iostream>
 #include "Materia.h"
-#include "Constantes.h"
 
 class Grade {
 private:
