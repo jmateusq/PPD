@@ -67,6 +67,7 @@ int main() {
     }
 
     // Definição do Catálogo de Matérias
+    // ID, Nome, Dificuldade (0=Livre, 1=Leve, 2=Médio, 3=Dificil)
     std::vector<Materia> catalogo;
 
     for(auto& mat : catalogo){

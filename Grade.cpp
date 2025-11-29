@@ -3,11 +3,29 @@
 #include <algorithm> // swap
 
 Grade::Grade(const std::vector<Materia>& catalogoMaterias) {
-    // Preenche a grade aleatoriamente com matérias do catálogo
-    for (unsigned long i = 0; i < SLOTS_TOTAL; i++) {
-        int indiceAleatorio = rand() % catalogoMaterias.size();
+    slots.reserve(SLOTS_TOTAL); // Otimização de memória
+
+    // PASSO 1: Garantir pelo menos uma ocorrência de cada matéria
+    // (Desde que haja espaço na grade)
+    for (const auto& mat : catalogoMaterias) {
+        if (slots.size() < SLOTS_TOTAL) {
+            slots.push_back(mat);
+        }
+    }
+
+    // PASSO 2: Preencher o restante dos slots aleatoriamente
+    while (slots.size() < SLOTS_TOTAL) {
+        unsigned long indiceAleatorio = (unsigned long)rand() % catalogoMaterias.size();
         slots.push_back(catalogoMaterias[indiceAleatorio]);
     }
+
+    // PASSO 3: Embaralhar a grade inicial
+    // Como inserimos em ordem, precisamos misturar para gerar aleatoriedade real
+    for (size_t i = 0; i < slots.size(); i++) {
+        size_t j = (unsigned long)rand() % slots.size();
+        std::swap(slots[i], slots[j]);
+    }
+
     atualizarPontuacao();
 }
 
@@ -54,13 +72,24 @@ void Grade::atualizarPontuacao() {
 Grade Grade::gerarVizinho() const {
     Grade vizinho(*this); // Cria cópia
     
-    unsigned long i = rand() % SLOTS_TOTAL;
-    unsigned long j = rand() % SLOTS_TOTAL;
+    unsigned long i = (unsigned long)rand() % SLOTS_TOTAL;
+    unsigned long j = (unsigned long)rand() % SLOTS_TOTAL;
 
     std::swap(vizinho.slots[i], vizinho.slots[j]);
     
     vizinho.atualizarPontuacao(); // Recalcula score do vizinho
     return vizinho;
+}
+
+Grade& Grade::operator=(const Grade& other) {
+    // 1. Verificação de auto-atribuição (ex: a = a)
+    if (this != &other) {
+        // 2. Copia os dados
+        this->slots = other.slots;
+        this->pontuacao = other.pontuacao;
+    }
+    // 3. Retorna a referência do próprio objeto
+    return *this;
 }
 
 void Grade::imprimir() const {

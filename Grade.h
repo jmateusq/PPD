@@ -26,6 +26,8 @@ public:
     // Gera uma nova grade trocando dois horários
     Grade gerarVizinho() const;
 
+    Grade& operator=(const Grade& other); 
+
     void imprimir() const;
 };
 
