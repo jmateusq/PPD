@@ -102,8 +102,8 @@ int main() {
             cout << endl;
 
             cout << " [3] PRECISAO: ";
-            if (config.getMaxIteracao() <= 0) cout << "Padrao (1000)";
-            else cout << config.getMaxIteracao() << " Iteracoes";
+            if (config.getMaxIteracao() <= 0) cout << "Padrao (1x 1000)";
+            else cout << config.getTentativas() << " Restarts x " << config.getMaxIteracao() << " Iteracoes";
             cout << endl;
             
             cout << "---------------------------------------------" << endl;
@@ -167,12 +167,46 @@ int main() {
                 }
 
                 case 3: {
-                    int iter;
-                    cout << "Num. Iteracoes: ";
-                    if(cin >> iter) { try { config.setMaxIteracoes(iter); } catch(...) {} }
-                    else limparBuffer();
+                    cout << "\n--- CONFIGURACAO DE PRECISAO ---" << endl;
+                    unsigned long int tentativas, iteracoes;
+
+                    // Configurar REINICIALIZAÇÕES (Restarts)
+                    while (true) {
+                        cout << "1. Numero de Tentativas (Quantas vezes reiniciar do zero?): ";
+                        if (cin >> tentativas) {
+                            try {
+                                config.setTentativas(tentativas);
+                                break;
+                            } catch (const std::exception& e) {
+                                cout << ">> ERRO: " << e.what() << endl;
+                            }
+                        } else {
+                            limparBuffer();
+                        }
+                    }
+
+                    // Configurar ITERAÇÕES (Steps)
+                    while (true) {
+                        cout << "2. Iteracoes por Tentativa (Passos de melhoria interna): ";
+                        if (cin >> iteracoes) {
+                            try {
+                                config.setMaxIteracoes(iteracoes);
+                                break;
+                            } catch (const std::exception& e) {
+                                cout << ">> ERRO: " << e.what() << endl;
+                            }
+                        } else {
+                            limparBuffer();
+                        }
+                    }
+                    
+                    cout << ">> Configurado: Rodara " << config.getTentativas() 
+                        << " vezes, com " << config.getMaxIteracao() << " passos cada." << endl;
+                    cout << ">> Total de grades geradas/analisadas: " 
+                        << (long long unsigned)config.getTentativas() * config.getMaxIteracao() << endl;
                     break;
                 }
+
 
                 case 4: {
                     // --- EXECUÇÃO DO ALGORITMO ---
@@ -180,6 +214,8 @@ int main() {
                         cout << "\n>> [ERRO] Catalogo vazio! Adicione materias primeiro." << endl;
                         break; 
                     }
+
+                    if (config.getTentativas() <= 0) config.setTentativas(1);
 
                     // Aplica padrões se o usuário não configurou
                     if (config.getDias() <= 0) config.setDias(5);

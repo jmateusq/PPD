@@ -7,25 +7,27 @@ class Configuracao {
 private:
     int dias;
     int turnos;
-    int maxIteracoes; 
+    unsigned long int maxIteracoes; 
     int aulasPorTurno; 
+    unsigned long int tentativas;
 
 public:
     Configuracao();
-    Configuracao(int dias, int turnos, int maxIteracoes, int aulasTurno);
+    Configuracao(int dias, int turnos, unsigned long int maxIteracoes, int aulasTurno);
     
     // Getters
     int getDias() const;
     int getTurnos() const;
-    int getMaxIteracao() const;
+    unsigned long int getMaxIteracao() const;
     int getAulaTurno() const;
     int getTotalSlots() const;
+    unsigned long int getTentativas() const;
 
     // Setters com validação (PÚBLICOS)
     void setDias(int dias);
     void setTurnos(int turnos);
-    void setMaxIteracoes(int maxIteracoes);
+    void setMaxIteracoes(unsigned long int maxIteracoes);
     void setAulaTurno(int aulasTurno);
+    void setTentativas(unsigned long int t);
 };
-
 #endif

@@ -2,19 +2,20 @@
 #define OTIMIZADOR_H
 
 #include "Grade.h"
-#include "Materia.h"
 #include "Configuracao.h"
 #include <vector>
 
 class Otimizador {
 private:
     std::vector<Materia> catalogo;
-    Configuracao configuracao;
+    Configuracao config; // Armazena uma cópia ou referência da config
+
+    // Método auxiliar privado
+    Grade rodarHillClimbingLocal(); 
 
 public:
-    Otimizador(std::vector<Materia> &catalogo, Configuracao &configuracao);
+    Otimizador(std::vector<Materia> &catalogo, Configuracao &config);
     
-    // Método principal que roda o algoritmo
     void executar();
 };
 
