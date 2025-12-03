@@ -9,10 +9,10 @@
 class Otimizador {
 private:
     std::vector<Materia> catalogo;
-    int maxIteracoes;
+    Configuracao configuracao;
 
 public:
-    Otimizador(std::vector<Materia> &catalogo, Configuracao &maxIteracoes);
+    Otimizador(std::vector<Materia> &catalogo, Configuracao &configuracao);
     
     // Método principal que roda o algoritmo
     void executar();

@@ -2,8 +2,8 @@
 #include "Configuracao.h" 
 #include <iomanip>
 
-Otimizador::Otimizador(std::vector<Materia> &Catalogo, Configuracao &MaxIteracoes) 
-    : catalogo(Catalogo), maxIteracoes(MaxIteracoes.getMaxIteracao()) {}
+Otimizador::Otimizador(std::vector<Materia> &Catalogo, Configuracao &Configuracao) 
+    : catalogo(Catalogo), configuracao(Configuracao) {}
 
 void Otimizador::executar() {
     // 1. Gera estado inicial
@@ -16,6 +16,7 @@ void Otimizador::executar() {
     std::cout << "Iteracao | Score Atual\n";
 
     int iteracoes = 0;
+    int maxIteracoes = configuracao.getMaxIteracao();
 
     // Loop Hill Climbing
     while (iteracoes < maxIteracoes) {
@@ -26,6 +27,10 @@ void Otimizador::executar() {
         if (vizinho.getPontuacao() > atual.getPontuacao()) {
             atual = vizinho;
             std::cout << std::setw(8) << iteracoes << " | " << atual.getPontuacao() << " (Subindo...)\n";
+        }
+
+        if(iteracoes % 100 == 0 || iteracoes == maxIteracoes - 1) {
+            std::cout << std::setw(8) << iteracoes << " | " << atual.getPontuacao() << "\n";
         }
         
         iteracoes++;

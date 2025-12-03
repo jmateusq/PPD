@@ -9,7 +9,6 @@
 
 
 
-
 Grade::Grade(const std::vector<Materia>& catalogoMaterias) {
     slots.reserve(SLOTS_TOTAL); // Otimização de memória
 
