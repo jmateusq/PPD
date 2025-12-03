@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  otimizador:
+    build: .
+    image: otimizador-estudos
+    container_name: otimizador_container
+    
+    # Mapeia a pasta atual para dentro do container.
+    # Assim, o arquivo .txt é salvo no seu PC e o código é lido daqui.
+    volumes:
+      - .:/usr/src/app
+    
+    # Habilita interatividade (essencial para usar cin/cout)
+    stdin_open: true 
+    tty: true
+
+    # Comando mágico: Compila todos os .cpp encontrados e executa
+    # O *.cpp pega automaticamente Configracao.cpp ou Configuracao.cpp
+    command: /bin/bash -c "g++ -Wall -Wextra -o otimizador *.cpp && ./otimizador"
