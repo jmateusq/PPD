@@ -2,10 +2,10 @@
 
 Materia::Materia() : id(0), nome("Livre"), dificuldade(0) {}
 
-Materia::Materia(int Id, std::string Nome, int Dificuldade) 
+Materia::Materia(unsigned long int Id, std::string Nome, int Dificuldade) 
     : id(Id), nome(Nome), dificuldade(Dificuldade) {}
 
-int Materia::getId() const {
+unsigned long int Materia::getId() const {
     return id;
 }
 

@@ -1,8 +1,9 @@
 #include "Otimizador.h"
+#include "Configuracao.h" 
 #include <iomanip>
 
-Otimizador::Otimizador(std::vector<Materia> Catalogo, int MaxIteracoes) 
-    : catalogo(Catalogo), maxIteracoes(MaxIteracoes) {}
+Otimizador::Otimizador(std::vector<Materia> &Catalogo, Configuracao &MaxIteracoes) 
+    : catalogo(Catalogo), maxIteracoes(MaxIteracoes.getMaxIteracao()) {}
 
 void Otimizador::executar() {
     // 1. Gera estado inicial

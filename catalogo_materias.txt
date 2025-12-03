@@ -1,0 +1,17 @@
+0 Calculo_3 3
+1 PPD 3
+2 IHC 2
+3 IA 2
+4 LIbras 1
+5 Cybersec 3
+6 MC 1
+7 Portugues 2
+8 Fisica 3
+9 Ingles 2
+10 Geografia 3
+11 História 2
+12 Comunismo 1
+13 Russo 3
+14 Japones 3
+15 Irlandes 2
+16 Culinaria 1

@@ -1,6 +1,14 @@
 #include "Grade.h"
+#include "Configuracao.h"
 #include <cstdlib> // rand
 #include <algorithm> // swap
+
+#define SLOTS_TOTAL 10
+#define DIAS 5
+#define TURNOS 2
+
+
+
 
 Grade::Grade(const std::vector<Materia>& catalogoMaterias) {
     slots.reserve(SLOTS_TOTAL); // Otimização de memória

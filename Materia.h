@@ -6,15 +6,15 @@
 
 class Materia {
 private:
-    int id;
+    unsigned long int id;
     std::string nome;
     int dificuldade; // 0: Livre, 1: Leve, 3: Difícil
 
 public:
     Materia(); // Construtor padrão
-    Materia(int id, std::string nome, int dificuldade);
+    Materia(unsigned long int id, std::string nome, int dificuldade);
 
-    int getId() const;
+    unsigned long int getId() const;
     std::string getNome() const;
     int getDificuldade() const;
 

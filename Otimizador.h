@@ -3,6 +3,7 @@
 
 #include "Grade.h"
 #include "Materia.h"
+#include "Configuracao.h"
 #include <vector>
 
 class Otimizador {
@@ -11,7 +12,7 @@ private:
     int maxIteracoes;
 
 public:
-    Otimizador(std::vector<Materia> catalogo, int maxIteracoes);
+    Otimizador(std::vector<Materia> &catalogo, Configuracao &maxIteracoes);
     
     // Método principal que roda o algoritmo
     void executar();
