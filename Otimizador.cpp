@@ -1,5 +1,5 @@
 #include "Otimizador.h"
-#include "KernelOtimizador.cuh"
+#include "KernelOtimizador.cuh" // Interface CUDA
 #include <iostream>
 
 using namespace std;
@@ -7,7 +7,8 @@ using namespace std;
 Otimizador::Otimizador(std::vector<Voo> &Catalogo, Configuracao &Config) 
     : catalogo(Catalogo), config(Config) {}
 
-// AVISO: rodarHillClimbingLocal foi removido pois a lógica agora é interna da GPU
+// AVISO: A função 'rodarHillClimbingLocal' antiga foi removida 
+// pois agora delegamos tudo para 'rodarOtimizacaoCUDA'.
 
 void Otimizador::executar() {
     cout << "----------------------------------------------------" << endl;
@@ -16,25 +17,29 @@ void Otimizador::executar() {
 
     std::vector<int> indicesVencedores;
     
-    // CHAMADA PARALELA
-    // Todas as tentativas rodam simultaneamente na placa de vídeo
-    long long int scoreFinal = rodarOtimizacaoCUDA(
+    // CHAMADA AO KERNEL (WRAPPER)
+    long long int scoreFinalGPU = rodarOtimizacaoCUDA(
         catalogo, 
         config.getTentativas(), 
         config.getTotalSlots(), 
         config.getMaxIteracao(), 
-        indicesVencedores
+        indicesVencedores,
+        config.getVoosPorDia() // IMPORTANTE: Passar este parâmetro!
     );
 
-    cout << ">> GPU Finalizada. Melhor Score Global: " << scoreFinal << endl;
+    cout << ">> GPU Finalizada. Melhor Score Estimado: " << scoreFinalGPU << endl;
 
-    // RECONSTRUÇÃO DO OBJETO PARA IMPRESSÃO
-    // Criamos uma escala vazia e forçamos os slots vencedores nela
-    Escala escalaFinal(catalogo, config); // (Cria random, mas vamos sobrescrever)
-    
-    // Método auxiliar que você precisará adicionar em Escala.h / Escala.cpp
-    // para injetar os dados puros vindos da GPU
+    // RECONSTRUÇÃO DO OBJETO NA CPU
+    // Criamos uma escala "vazia" e injetamos os índices que a GPU escolheu
+    Escala escalaFinal(catalogo, config); 
     escalaFinal.carregarDeIndices(indicesVencedores, catalogo);
+
+    // Recalcula o score na CPU para ter certeza absoluta (validação cruzada)
+    // O construtor/carregarDeIndices já chama atualizarPontuacao(), 
+    // mas é bom conferir se bate com o da GPU.
+    long long int scoreCPU = escalaFinal.getPontuacao();
+    
+    cout << ">> Score Validado pela CPU: " << scoreCPU << endl;
 
     cout << "----------------------------------------------------" << endl;
     cout << "MELHOR RESULTADO ENCONTRADO:" << endl;

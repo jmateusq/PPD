@@ -16,7 +16,8 @@ long long int rodarOtimizacaoCUDA(
     int numTentativas,
     int numSlots,
     int maxIter,
-    std::vector<int>& melhorEscalaIndices
+    std::vector<int>& melhorEscalaIndices,
+    int voosPorDia
 );
 
 #endif
