@@ -1,33 +1,33 @@
 #ifndef CONFIGURACAO_H
 #define CONFIGURACAO_H
 
-#include <stdexcept> // Necessário para as exceções, se for implementar no .h, senão apenas no .cpp
+#include <stdexcept>
 
 class Configuracao {
 private:
-    int dias;
-    int turnos;
+    int numDias;             // Quantos dias a escala cobre (horizonte de planejamento)
+    int voosPorDia;          // Máximo de slots de voo por dia (normalmente 1 a 4)
     unsigned long int maxIteracoes; 
-    int aulasPorTurno; 
     unsigned long int tentativas;
 
 public:
     Configuracao();
-    Configuracao(int dias, int turnos, unsigned long int maxIteracoes, int aulasTurno);
+    Configuracao(int dias, int voosDia, unsigned long int maxIter, unsigned long int tent);
     
     // Getters
     int getDias() const;
-    int getTurnos() const;
+    int getVoosPorDia() const;
     unsigned long int getMaxIteracao() const;
-    int getAulaTurno() const;
-    int getTotalSlots() const;
     unsigned long int getTentativas() const;
+    
+    // Helper para saber o tamanho total do vetor da escala
+    int getTotalSlots() const;
 
-    // Setters com validação (PÚBLICOS)
+    // Setters com validação
     void setDias(int dias);
-    void setTurnos(int turnos);
+    void setVoosPorDia(int vpd);
     void setMaxIteracoes(unsigned long int maxIteracoes);
-    void setAulaTurno(int aulasTurno);
     void setTentativas(unsigned long int t);
 };
+
 #endif
