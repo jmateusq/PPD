@@ -2,42 +2,25 @@
 #include <cstdlib> 
 #include <algorithm> 
 #include <iomanip> 
-
-// Auxiliar para imprimir nomes baseados no ID (Apenas visual)
-std::string getNomeAeroporto(int id) {
-    switch(id) {
-        case 0: return "GRU";
-        case 1: return "MIA";
-        case 2: return "JFK";
-        case 3: return "LHR";
-        case 4: return "BSB";
-        case 5: return "SCL";
-        default: return "---";
-    }
-}
+#include <map> 
 
 // Construtor
 Escala::Escala(const std::vector<Voo>& catalogoVoos, Configuracao Config) : config(Config) {
-    int totalSlots = (int)config.getTotalSlots(); // Dias * VoosPorDia
+    int totalSlots = (int)config.getTotalSlots(); 
     slots.reserve((unsigned long int)totalSlots); 
 
-    // PREENCHIMENTO INICIAL
-    // Estratégia: Preencher com voos aleatórios e alguns "buracos" (folgas)
-    // Isso cria uma solução inicial ruim, que o Hill Climbing vai consertar.
     for (int i = 0; i < totalSlots; i++) {
-        // 30% de chance de ser folga (Voo vazio), 70% de ser voo
-        if ((rand() % 100) < 30) {
-            slots.push_back(Voo()); // Voo vazio (construtor padrão)
+        // 20% Folga, 80% Voo (Começa bem preenchido)
+        if ((rand() % 100) < 20) {
+            slots.push_back(Voo()); 
         } else {
             int idx = rand() % catalogoVoos.size();
             slots.push_back(catalogoVoos[idx]);
         }
     }
-
     atualizarPontuacao();
 }
 
-// Construtor de Cópia
 Escala::Escala(const Escala& outra) : config(outra.config) {
     this->slots = outra.slots;
     this->pontuacao = outra.pontuacao;
@@ -47,52 +30,97 @@ long long int Escala::getPontuacao() const {
     return pontuacao;
 }
 
-// --- CORAÇÃO DO ALGORITMO ---
+// --- LÓGICA DE PONTUAÇÃO (Constraints) ---
 void Escala::atualizarPontuacao() {
     long long int score = 0;
+    int localizacaoAtual = 0; // Base: GRU
     
-    // Assumimos que todo tripulante começa na BASE (Aeroporto 0 - ex: GRU)
-    int localizacaoAtual = 0; 
+    // Contadores Sequenciais
+    int voosSeguidos = 0;
+    int folgasSeguidas = 0;
 
-    // Penalidades e Bônus configuráveis
-    const int BONUS_HORA_VOO = 10;    // Ganha pontos por produzir
-    const int PENALIDADE_QUEBRA = 50000; // Perde muito se teleportar
-    const int CUSTO_DEADHEAD = 2000;     // Custo se precisar mover o piloto como passageiro
+    // Mapa para contar repetição global de voos (Variedade)
+    std::map<int, int> frequenciaVoos;
+    
+    // Configurações do tempo
+    int voosPorDia = config.getVoosPorDia();
 
-    for (const auto& voo : slots) {
-        // Se for slot vazio (Folga/Espera)
+    // --- PESOS E PENALIDADES ---
+    const int BONUS_HORA_VOO          = 20;   // Mantém (Base do cálculo)
+    const int BONUS_DESCANSO_CURTO    = 500;  // Aumentaria um pouco para incentivar recargas estratégicas
+
+    // --- HARD CONSTRAINTS (Coisas impossíveis ou ilegais) ---
+    // Devem ser ordens de magnitude maiores que qualquer ganho
+    const int PENALIDADE_QUEBRA       = 100000; // Aumentar! Teletransporte é inaceitável.
+    
+    // --- SAFETY CONSTRAINTS (Regras de segurança) ---
+    // Devem ser maiores que o ganho do voo mais longo (ex: > 12.000)
+    const int PENALIDADE_FADIGA       = 15000;  // Aumentar! Jamais vale a pena voar cansado.
+    
+    // --- SOFT CONSTRAINTS (Qualidade de vida / Preferência da empresa) ---
+    // Podem ser menores, negociáveis com a produtividade
+    const int PENALIDADE_REPETICAO    = 8000;   // Aumentar. Repetir 4x é muito chato.
+    const int PENALIDADE_OCIOSIDADE   = 5000;   // Bom valor.
+    const int PENALIDADE_MANHA_OCIOSA = 5000;   // Bom valor (equivalente a perder um voo médio).
+    
+    const int CUSTO_DEADHEAD_FIXO     = 2000;   // Ok.
+
+    // Mudei para loop com índice (i) para saber quando é o início do dia
+    for (size_t i = 0; i < slots.size(); i++) {
+        
+        Voo voo = slots[i];
+        
+        // Verifica se é o primeiro slot do dia atual
+        bool inicioDoDia = (i % voosPorDia == 0);
+
+        // --- CASO 1: FOLGA ---
         if (voo.getId() == -1) {
-            // Folga é neutra, mas o piloto continua no mesmo lugar.
-            // Poderíamos dar um pequeno bônus por descanso se quiséssemos.
+            voosSeguidos = 0; 
+            folgasSeguidas++; 
+
+            // 1. Regra da Manhã Ociosa (NOVO)
+            if (inicioDoDia) {
+                score -= PENALIDADE_MANHA_OCIOSA;
+            }
+
+            // 2. Regra de Ociosidade contínua
+            if (folgasSeguidas <= 2) score += BONUS_DESCANSO_CURTO;
+            else score -= PENALIDADE_OCIOSIDADE; 
+            
             continue; 
         }
 
-        // Verifica Continuidade: O voo sai de onde o piloto está?
+        // --- CASO 2: VOO REAL ---
+        folgasSeguidas = 0; 
+        voosSeguidos++;
+
+        // 1. Contagem de Repetição (Variedade)
+        frequenciaVoos[voo.getId()]++;
+        if (frequenciaVoos[voo.getId()] > LIMITE_REPETICAO_VOO) {
+            score -= PENALIDADE_REPETICAO;
+        }
+
+        // 2. Continuidade Geográfica
         if (voo.getOrigem() == localizacaoAtual) {
-            // Conexão Perfeita!
-            score += (voo.getDuracao() * BONUS_HORA_VOO); // Quanto mais longo, mais produtivo
-            
-            // Atualiza a posição do piloto para o destino
-            localizacaoAtual = voo.getDestino();
+            score += (voo.getDuracao() * BONUS_HORA_VOO); 
         } 
         else {
-            // ERRO DE ROTA: O piloto está em A, mas o voo sai de B.
-            // Penalidade severa (solução inválida ou muito custosa)
             score -= PENALIDADE_QUEBRA;
-            
-            // Para o algoritmo não se perder totalmente, assumimos que a empresa
-            // pagou um transporte de emergência (Deadhead) para levar ele até a origem do voo.
-            score -= CUSTO_DEADHEAD;
-            
-            // Agora ele está no destino desse voo "forçado"
-            localizacaoAtual = voo.getDestino();
+            score -= CUSTO_DEADHEAD_FIXO;
+            score -= (180 * BONUS_HORA_VOO); 
         }
+
+        // 3. Fadiga
+        if (voosSeguidos >= 3) {
+            score -= PENALIDADE_FADIGA;
+        }
+
+        localizacaoAtual = voo.getDestino();
     }
     
-    // Regra Extra: O piloto deve voltar para a Base (0) no final da escala?
-    // Se não terminar em 0, penaliza.
+    // Regra Final: Base
     if (localizacaoAtual != 0) {
-        score -= 5000; // Penalidade por não dormir em casa no final do mês
+        score -= 10000; 
     }
 
     this->pontuacao = score;
@@ -117,23 +145,27 @@ void Escala::carregarDeIndices(const std::vector<int>& indices, const std::vecto
 
 // Gera Vizinho: Faz uma mutação na escala
 Escala Escala::gerarVizinho(const std::vector<Voo>& catalogoVoos) const {
-    Escala vizinho(*this); // Copia
+    Escala vizinho(*this); 
     
-    int tipoMutacao = rand() % 3;
-    int idx = rand() % vizinho.slots.size();
+    int tipoMutacao = rand() % 100; 
+    unsigned long idx = rand() % vizinho.slots.size();
 
-    if (tipoMutacao == 0) {
-        // TROCA: Troca um voo por outro aleatório do catálogo
+    // Ajustei as probabilidades para favorecer a troca de voos (ajuda na variedade)
+    if (tipoMutacao < 50) { // 50% chance: Trocar Voo
         int idxVoo = rand() % catalogoVoos.size();
         vizinho.slots[idx] = catalogoVoos[idxVoo];
     } 
-    else if (tipoMutacao == 1) {
-        // LIMPEZA: Transforma um voo em folga (remove conflito)
-        vizinho.slots[idx] = Voo(); // Voo vazio
+    else if (tipoMutacao < 70) { // 20%: Criar Folga
+        vizinho.slots[idx] = Voo(); 
     }
-    else {
-        // SWAP: Troca dois slots de lugar na mesma escala
-        int idx2 = rand() % vizinho.slots.size();
+    else if (tipoMutacao < 85) { // 15%: Remover Folga
+        if (vizinho.slots[idx].getId() == -1) {
+            int idxVoo = rand() % catalogoVoos.size();
+            vizinho.slots[idx] = catalogoVoos[idxVoo];
+        }
+    }
+    else { // 15%: Swap
+        unsigned long idx2 = rand() % vizinho.slots.size();
         std::swap(vizinho.slots[idx], vizinho.slots[idx2]);
     }
     
@@ -151,31 +183,61 @@ Escala& Escala::operator=(const Escala& other) {
 }
 
 void Escala::imprimir() const {
-    std::cout << "\n=== ESCALA DO TRIPULANTE (Score: " << pontuacao << ") ===\n";
-    std::cout << "---------------------------------------------------------\n";
-    std::cout << "DIA  | ORIGEM -> DESTINO | DURACAO | STATUS\n";
-    std::cout << "---------------------------------------------------------\n";
+    std::cout << "\n=== ESCALA OTIMIZADA (Score: " << pontuacao << ") ===\n";
+    std::cout << "-----------------------------------------------------------------------------\n";
+    std::cout << "DIA | ORIGEM -> DESTINO               | DURACAO | STATUS       | OBS\n";
+    std::cout << "-----------------------------------------------------------------------------\n";
 
-    int dias = config.getDias();
     int voosPorDia = config.getVoosPorDia();
-    
     int currentDay = 1;
+    
+    int voosSeguidos = 0;
+    int folgasSeguidas = 0;
+    
+    // Mapa auxiliar apenas para visualização de repetidos na impressão
+    std::map<int, int> countView;
+
     for (size_t i = 0; i < slots.size(); i++) {
-        // Calcula o dia atual baseado no índice
-        if (i > 0 && i % voosPorDia == 0) currentDay++;
+        
+        bool inicioDoDia = (i % voosPorDia == 0);
+
+        if (i > 0 && inicioDoDia) {
+            currentDay++;
+            std::cout << "----|---------------------------------|---------|--------------|-----\n";
+        }
 
         Voo v = slots[i];
         
-        std::cout << std::setw(4) << currentDay << " | ";
+        std::cout << std::setw(3) << currentDay << " | ";
         
         if (v.getId() == -1) {
-            std::cout << "      ---          |    ---  | FOLGA/ESPERA";
+            folgasSeguidas++;
+            voosSeguidos = 0;
+            std::cout << "      ---   REPOUSO   ---         |   ---   | FOLGA        |";
+            
+            // Visualização das flags
+            bool obs = false;
+            if (inicioDoDia) { std::cout << " ! PREGUICA"; obs = true; }
+            if (folgasSeguidas > 2) { std::cout << " ! OCIO"; obs = true; }
+            if (!obs) std::cout << " OK";
+
         } else {
-            std::string rota = getNomeAeroporto(v.getOrigem()) + " -> " + getNomeAeroporto(v.getDestino());
-            std::cout << std::setw(17) << rota << " | " 
-                      << std::setw(6) << v.getDuracao() << "m | VOO " << v.getId();
+            folgasSeguidas = 0;
+            voosSeguidos++;
+            countView[v.getId()]++; 
+
+            std::string rota = Voo::getNomeAeroporto(v.getOrigem()) + " -> " + Voo::getNomeAeroporto(v.getDestino());
+            if (rota.length() > 31) rota = rota.substr(0, 31);
+
+            std::cout << std::left << std::setw(32) << rota << "| " 
+                      << std::right << std::setw(3) << v.getDuracao() << " min | VOO " << std::setw(4) << v.getId() << " |";
+            
+            bool obs = false;
+            if (voosSeguidos >= 3) { std::cout << " ! FADIGA"; obs=true; }
+            if (countView[v.getId()] > 3) { std::cout << " ! REPETIDO"; obs=true; } 
+            if (!obs) std::cout << " OK";
         }
         std::cout << "\n";
     }
-    std::cout << "---------------------------------------------------------\n";
+    std::cout << "-----------------------------------------------------------------------------\n";
 }
