@@ -1,21 +1,24 @@
 #ifndef OTIMIZADOR_H
 #define OTIMIZADOR_H
 
-#include "Grade.h"
+#include "Voo.h"
+#include "Escala.h"
 #include "Configuracao.h"
 #include <vector>
 
 class Otimizador {
 private:
-    std::vector<Materia> catalogo;
-    Configuracao config; // Armazena uma cópia ou referência da config
+    std::vector<Voo> catalogo;
+    Configuracao config;
 
-    // Método auxiliar privado
-    Grade rodarHillClimbingLocal(); 
+    // Método auxiliar que roda UMA tentativa completa de otimização (Hill Climbing)
+    // Este método será executado em paralelo por várias threads no futuro
+    Escala rodarHillClimbingLocal(); 
 
 public:
-    Otimizador(std::vector<Materia> &catalogo, Configuracao &config);
+    Otimizador(std::vector<Voo> &catalogo, Configuracao &config);
     
+    // Método principal que gerencia as tentativas (Random Restarts)
     void executar();
 };
 

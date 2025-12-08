@@ -1,4 +1,3 @@
-// Otimizador.cpp
 #include "Otimizador.h"
 #include <vector>
 #include <iostream>
@@ -6,74 +5,71 @@
 
 using namespace std;
 
-Otimizador::Otimizador(std::vector<Materia> &Catalogo, Configuracao &Config) 
+Otimizador::Otimizador(std::vector<Voo> &Catalogo, Configuracao &Config) 
     : catalogo(Catalogo), config(Config) {
 }
 
-// Função auxiliar interna: Roda UMA VEZ o Hill Climbing e retorna o Máximo Local encontrado
-Grade Otimizador::rodarHillClimbingLocal() {
-    // 1. Gera uma solução inicial aleatória
-    Grade atual(catalogo, config); 
+// Roda UMA VEZ o Hill Climbing e retorna o Máximo Local encontrado
+// (Essa função é thread-safe se o rand() for tratado corretamente ou substituído por gerador local)
+Escala Otimizador::rodarHillClimbingLocal() {
+    // 1. Gera uma solução inicial (Geralmente ruim/aleatória)
+    Escala atual(catalogo, config); 
     
     unsigned long int maxIter = config.getMaxIteracao();
 
-    // 2. Loop de melhoria (Escalada)
+    // 2. Loop de melhoria (Escalada da Encosta)
     for (unsigned long int i = 0; i < maxIter; i++) {
-        Grade vizinho = atual.gerarVizinho();
+        
+        // Gera uma pequena mutação na escala atual
+        Escala vizinho = atual.gerarVizinho(catalogo);
 
+        // Se o vizinho for melhor (pontuação maior), aceitamos a mudança.
+        // Como nossas penalidades são negativas, "maior" significa "mais perto de zero ou positivo".
         if (vizinho.getPontuacao() > atual.getPontuacao()) {
-            atual = vizinho; // Aceita a melhora
+            atual = vizinho; 
         }
-        // Se for igual ou pior, mantém a atual (Hill Climbing padrão)
+        // Se for pior ou igual, mantemos a 'atual' e tentamos outro vizinho na próxima iteração
     }
 
-    return atual; // Retorna o "Máximo Local" desta tentativa
+    return atual; // Retorna a melhor escala encontrada nesta tentativa
 }
 
 void Otimizador::executar() {
-    unsigned long int nTentativas = config.getTentativas(); // Ex: 1000 vezes
-    std::vector<Grade> listaMaximosLocais;
+    unsigned long int nTentativas = config.getTentativas(); // Ex: 1000 restarts
     
-    // Reserva memória para evitar realocações
-    listaMaximosLocais.reserve(nTentativas);
+    // Armazenará a melhor escala encontrada entre TODAS as tentativas
+    // Inicializamos com uma escala vazia/padrão
+    Escala melhorGlobal(catalogo, config);
+    bool primeiroUpdate = true;
 
-    cout << "Iniciando Otimizacao com Random Restarts..." << endl;
-    cout << "Tentativas (Restarts): " << nTentativas << endl;
-    cout << "Iteracoes por tentativa: " << config.getMaxIteracao() << endl;
+    cout << ">> Iniciando Otimizacao de Escala (Airline Crew Rostering)..." << endl;
+    cout << ">> Restarts: " << nTentativas << " | Iteracoes/Restart: " << config.getMaxIteracao() << endl;
     cout << "----------------------------------------------------" << endl;
 
-    // --- FASE 1: Coletar Máximos Locais ---
+    // ==============================================================================
+    // PONTO DE PARALELISMO (OpenMP vai aqui depois)
+    // Cada iteração 't' é independente das outras.
+    // ==============================================================================
     for (unsigned long int t = 0; t < nTentativas; t++) {
-        // Roda o algoritmo completo uma vez
-        Grade melhorDestaRodada = rodarHillClimbingLocal();
         
-        // Adiciona na lista
-        listaMaximosLocais.push_back(melhorDestaRodada);
+        // Executa a busca local (Processo pesado)
+        Escala melhorLocal = rodarHillClimbingLocal();
+        
+        // Verifica se essa tentativa encontrou um resultado melhor que o recorde atual
+        long long int scoreLocal = melhorLocal.getPontuacao();
 
-        // Feedback visual de progresso (a cada 10% ou a cada 1 se for pouco)
-        if (nTentativas < 20 || (t+1) % (nTentativas/10) == 0) {
-            cout << ">> Tentativa " << (t+1) << "/" << nTentativas 
-                 << " concluida. Melhor Score local: " << melhorDestaRodada.getPontuacao() << endl;
+        // (Futuramente: Critical Section aqui)
+        if (primeiroUpdate || scoreLocal > melhorGlobal.getPontuacao()) {
+            melhorGlobal = melhorLocal;
+            primeiroUpdate = false;
+            
+            // Log de progresso (Opcional: reduzir frequência se for muito rápido)
+            cout << "[Tentativa " << (t+1) << "] Novo Recorde: " << scoreLocal << endl;
         }
     }
 
-    // --- FASE 2: Comparar a lista e pegar o Grid com maior pontuação ---
+    // --- Exibir o Resultado Final ---
     cout << "----------------------------------------------------" << endl;
-    cout << "Comparando " << listaMaximosLocais.size() << " resultados..." << endl;
-
-    if (listaMaximosLocais.empty()) return;
-
-    // Encontra o iterador para o elemento com maior pontuação
-    // Usamos uma lambda function para comparar
-    auto melhorGlobalIt = std::max_element(
-        listaMaximosLocais.begin(), 
-        listaMaximosLocais.end(),
-        [](const Grade& a, const Grade& b) {
-            return a.getPontuacao() < b.getPontuacao();
-        }
-    );
-
-    // --- FASE 3: Exibir o Resultado Final ---
     cout << "MELHOR RESULTADO ENCONTRADO (GLOBAL):" << endl;
-    melhorGlobalIt->imprimir(); // Imprime a grade vencedora
+    melhorGlobal.imprimir(); 
 }
