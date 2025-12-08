@@ -4,163 +4,156 @@
 #include <ctime>
 #include <limits>
 #include <fstream> 
-#include "Materia.h" 
+#include <iomanip> // Para std::setw (formatação de tabelas)
+
+// Nossos módulos refatorados
+#include "Voo.h" 
 #include "Otimizador.h"
 #include "Configuracao.h" 
 
 using namespace std;
 
-const string NOME_ARQUIVO = "catalogo_materias.txt";
+const string NOME_ARQUIVO = "catalogo_voos.txt";
 
-// --- Funções Auxiliares ---
+// --- Funções Auxiliares de Sistema ---
 
+// Limpa o buffer de entrada (cin) para evitar bugs de leitura
 void limparBuffer() {
     cin.clear();
     cin.ignore(numeric_limits<streamsize>::max(), '\n');
 }
 
-string traduzirDificuldade(int dif) {
-    switch (dif) {
-        case 0: return "Livre";
-        case 1: return "Leve";
-        case 2: return "Media";
-        case 3: return "Dificil";
-        default: return to_string(dif);
-    }
-}
-
-// Salva o vetor atual no arquivo
-void salvarDados(const vector<Materia>& catalogo) {
+// Salva o vetor atual no arquivo de texto
+void salvarDados(const vector<Voo>& catalogo) {
     ofstream arquivo(NOME_ARQUIVO);
     if (arquivo.is_open()) {
-        for (const auto& mat : catalogo) {
-            // Formato: ID Nome Dificuldade
-            arquivo << mat.getId() << " " << mat.getNome() << " " << mat.getDificuldade() << endl;
+        for (const auto& v : catalogo) {
+            // Formato: ID ORIGEM DESTINO DURACAO
+            arquivo << v.getId() << " " 
+                    << v.getOrigem() << " " 
+                    << v.getDestino() << " " 
+                    << v.getDuracao() << endl;
         }
         arquivo.close();
     } else {
-        cout << ">> ERRO: Nao foi possivel salvar no arquivo!" << endl;
+        cerr << ">> ERRO CRITICO: Nao foi possivel escrever no arquivo " << NOME_ARQUIVO << endl;
     }
 }
 
-// Carrega do arquivo para o vetor
-void carregarDados(vector<Materia>& catalogo) {
+// Carrega do arquivo para o vetor em memória
+void carregarDados(vector<Voo>& catalogo) {
     ifstream arquivo(NOME_ARQUIVO);
     if (arquivo.is_open()) {
         catalogo.clear();
-        unsigned long int id;
-        string nome;
-        int dif;
-        while (arquivo >> id >> nome >> dif) {
-            catalogo.push_back(Materia(id, nome, dif));
+        int id, orig, dest, dur;
+        while (arquivo >> id >> orig >> dest >> dur) {
+            catalogo.push_back(Voo(id, orig, dest, dur));
         }
         arquivo.close();
     }
+    // Se o arquivo não existir, inicia com catálogo vazio sem dar erro
 }
 
-// Reorganiza IDs e salva
-void reindexarESalvar(vector<Materia>& catalogo) {
-    vector<Materia> novoCatalogo;
+// Reorganiza IDs sequencialmente após uma remoção e salva
+void reindexarESalvar(vector<Voo>& catalogo) {
+    vector<Voo> novoCatalogo;
+    novoCatalogo.reserve(catalogo.size());
+    
     for (size_t i = 0; i < catalogo.size(); i++) {
-        novoCatalogo.push_back(Materia(i, catalogo[i].getNome(), catalogo[i].getDificuldade()));
+        // Recria o voo mantendo dados originais, mas atualizando o ID para o índice 'i'
+        novoCatalogo.push_back(Voo((int)i, catalogo[i].getOrigem(), catalogo[i].getDestino(), catalogo[i].getDuracao()));
     }
     catalogo = novoCatalogo;
     salvarDados(catalogo);
 }
 
-// --- MAIN ---
+// --- MAIN (Ponto de Entrada) ---
 
 int main() {
+    // Inicializa semente aleatória para resultados variados
     srand((unsigned int)time(NULL));
 
-    // --- LOOP DA SESSÃO (Reinicia o programa mantendo os dados salvos) ---
+    // Loop da Sessão (permite reiniciar o sistema sem fechar o executável)
     while (true) {
         
-        // 1. Instancia Configuração ZERADA a cada reinício
+        // 1. Instancia Configuração (Reseta as configurações do usuário)
         Configuracao config; 
-        try { config.setDias(0); } catch(...) {} 
-        try { config.setMaxIteracoes(0); } catch(...) {}
-
-        // 2. Carrega o catálogo (Persistência)
-        std::vector<Materia> catalogo;
+        
+        // 2. Carrega os dados persistentes
+        std::vector<Voo> catalogo;
         carregarDados(catalogo);
 
         int opcao = 0; 
-        bool sessaoAtiva = true; // Controla o loop do menu
+        bool menuAtivo = true;
 
-        // --- LOOP DO MENU ---
-        while (sessaoAtiva) {
+        // Loop do Menu Interativo
+        while (menuAtivo) {
             cout << "\n=============================================" << endl;
-            cout << "      SISTEMA DE OTIMIZACAO DE ESTUDOS      " << endl;
+            cout << "      AIRLINE CREW ROSTERING (OTIMIZADOR)    " << endl;
             cout << "=============================================" << endl;
             
-            cout << " [1] MATERIAS: " << catalogo.size() << " cadastradas." << endl;
+            cout << " [1] CATÁLOGO: " << catalogo.size() << " voos disponiveis." << endl;
             
-            cout << " [2] TEMPO   : ";
-            if (config.getDias() <= 0) cout << "Pendente";
-            else cout << config.getDias() << " Dias | " << config.getTurnos() << " Turnos";
+            cout << " [2] ESCALA  : ";
+            if (config.getDias() <= 0) cout << "Nao configurada (Defina Dias/Voos)";
+            else cout << config.getDias() << " Dias | Max " << config.getVoosPorDia() << " Voos/Dia";
             cout << endl;
 
-            cout << " [3] PRECISAO: ";
+            cout << " [3] ALGORITMO: ";
             if (config.getMaxIteracao() <= 0) cout << "Padrao (1x 1000)";
-            else cout << config.getTentativas() << " Restarts x " << config.getMaxIteracao() << " Iteracoes";
+            else cout << config.getTentativas() << " Restarts x " << config.getMaxIteracao() << " Steps";
             cout << endl;
             
             cout << "---------------------------------------------" << endl;
-            cout << " 1 - Cadastrar Nova Materia" << endl;
-            cout << " 2 - Configurar Dias, Turnos e Aulas" << endl;
-            cout << " 3 - Configurar Precisao" << endl;
+            cout << " 1 - Cadastrar Novo Voo" << endl;
+            cout << " 2 - Configurar Tamanho da Escala" << endl;
+            cout << " 3 - Configurar Precisao (Iteracoes)" << endl;
             cout << " 4 - EXECUTAR OTIMIZACAO" << endl;
-            cout << " 5 - Listar Materias" << endl;
-            cout << " 6 - Remover uma Materia (Por ID)" << endl;
-            cout << " 7 - ZERAR todo o catalogo" << endl;
-            cout << " 0 - Sair do Programa" << endl;
+            cout << " 5 - Listar Voos (Tabela)" << endl;
+            cout << " 6 - Remover Voo" << endl;
+            cout << " 7 - ZERAR Base de Dados" << endl;
+            cout << " 0 - Sair" << endl;
             cout << "Escolha: ";
             
             if (!(cin >> opcao)) {
-                cout << "\n>> Entrada invalida!" << endl;
+                cout << "\n>> Entrada invalida! Digite um numero." << endl;
                 limparBuffer();
                 continue;
             }
 
             switch (opcao) {
                 case 1: { 
-                    string nomeMat;
-                    int difMat;
-                    cout << "\n--- CADASTRAR ---" << endl;
-                    cout << "Nome (sem espacos): ";
-                    cin >> nomeMat;
+                    int orig, dest, dur;
+                    cout << "\n--- CADASTRAR VOO ---" << endl;
+                    cout << "Use IDs de aeroportos (0=GRU, 1=MIA, 2=JFK...)" << endl;
                     
-                    bool difValida = false;
-                    while (!difValida) {
-                        cout << "Dificuldade (0=Livre, 1=Leve, 3=Dificil): ";
-                        if (cin >> difMat && difMat >= 0 && difMat <= 3) difValida = true;
-                        else { cout << ">> Valor invalido (0-3)." << endl; limparBuffer(); }
-                    }
+                    cout << "ID Origem: "; 
+                    while(!(cin >> orig)) { cout << "Numero invalido. Origem: "; limparBuffer(); }
+                    
+                    cout << "ID Destino: "; 
+                    while(!(cin >> dest)) { cout << "Numero invalido. Destino: "; limparBuffer(); }
+                    
+                    cout << "Duracao (min): "; 
+                    while(!(cin >> dur)) { cout << "Numero invalido. Duracao: "; limparBuffer(); }
 
-                    unsigned long int novoID = (unsigned long int)catalogo.size();
-                    catalogo.push_back(Materia(novoID, nomeMat, difMat)); 
+                    int novoID = (int)catalogo.size();
+                    catalogo.push_back(Voo(novoID, orig, dest, dur)); 
                     salvarDados(catalogo);
-                    cout << ">> Salvo!" << endl;
+                    cout << ">> Voo salvo com sucesso!" << endl;
                     break;
                 }
 
                 case 2: {
                     int val;
-                    cout << "\n--- CONFIGURAR TEMPO ---" << endl;
+                    cout << "\n--- CONFIGURAR ESCALA ---" << endl;
                     while (true) {
-                        cout << "Dias (1-7): ";
+                        cout << "Horizonte de Dias (ex: 30): ";
                         if (cin >> val) { try { config.setDias(val); break; } catch (exception& e) { cout << e.what() << endl; } } 
                         else limparBuffer();
                     }
                     while (true) {
-                        cout << "Turnos (1-3): ";
-                        if (cin >> val) { try { config.setTurnos(val); break; } catch (exception& e) { cout << e.what() << endl; } } 
-                        else limparBuffer();
-                    }
-                    while (true) {
-                        cout << "Aulas/Turno: ";
-                        if (cin >> val) { try { config.setAulaTurno(val); break; } catch (exception& e) { cout << e.what() << endl; } } 
+                        cout << "Max Voos por Dia (ex: 4): ";
+                        if (cin >> val) { try { config.setVoosPorDia(val); break; } catch (exception& e) { cout << e.what() << endl; } } 
                         else limparBuffer();
                     }
                     break;
@@ -170,132 +163,116 @@ int main() {
                     cout << "\n--- CONFIGURACAO DE PRECISAO ---" << endl;
                     unsigned long int tentativas, iteracoes;
 
-                    // Configurar REINICIALIZAÇÕES (Restarts)
-                    while (true) {
-                        cout << "1. Numero de Tentativas (Quantas vezes reiniciar do zero?): ";
-                        if (cin >> tentativas) {
-                            try {
-                                config.setTentativas(tentativas);
-                                break;
-                            } catch (const std::exception& e) {
-                                cout << ">> ERRO: " << e.what() << endl;
-                            }
-                        } else {
-                            limparBuffer();
-                        }
-                    }
+                    cout << "1. Tentativas (Restarts) - Quantas escalas gerar do zero? ";
+                    cin >> tentativas;
+                    try { config.setTentativas(tentativas); } catch(...) {}
 
-                    // Configurar ITERAÇÕES (Steps)
-                    while (true) {
-                        cout << "2. Iteracoes por Tentativa (Passos de melhoria interna): ";
-                        if (cin >> iteracoes) {
-                            try {
-                                config.setMaxIteracoes(iteracoes);
-                                break;
-                            } catch (const std::exception& e) {
-                                cout << ">> ERRO: " << e.what() << endl;
-                            }
-                        } else {
-                            limparBuffer();
-                        }
-                    }
+                    cout << "2. Iteracoes por Tentativa - Quantas trocas testar? ";
+                    cin >> iteracoes;
+                    try { config.setMaxIteracoes(iteracoes); } catch(...) {}
                     
-                    cout << ">> Configurado: Rodara " << config.getTentativas() 
-                        << " vezes, com " << config.getMaxIteracao() << " passos cada." << endl;
-                    cout << ">> Total de grades geradas/analisadas: " 
-                        << (long long unsigned)config.getTentativas() * config.getMaxIteracao() << endl;
+                    cout << ">> Configurado: " << config.getTentativas() * config.getMaxIteracao() << " avaliacoes totais." << endl;
                     break;
                 }
 
-
                 case 4: {
-                    // --- EXECUÇÃO DO ALGORITMO ---
                     if (catalogo.empty()) {
-                        cout << "\n>> [ERRO] Catalogo vazio! Adicione materias primeiro." << endl;
+                        cout << "\n>> [ERRO] Catalogo vazio! Impossivel gerar escala." << endl;
                         break; 
                     }
 
+                    // Define padrões razoáveis se o usuário esqueceu de configurar
                     if (config.getTentativas() <= 0) config.setTentativas(1);
-
-                    // Aplica padrões se o usuário não configurou
                     if (config.getDias() <= 0) config.setDias(5);
-                    if (config.getTurnos() <= 0) config.setTurnos(2);
-                    if (config.getAulaTurno() <= 0) config.setAulaTurno(4);
-                    if (config.getMaxIteracao() <= 0) config.setMaxIteracoes(1000);
+                    if (config.getVoosPorDia() <= 0) config.setVoosPorDia(4);
+                    if (config.getMaxIteracao() <= 0) config.setMaxIteracoes(2000);
 
                     cout << "\n=============================================" << endl;
-                    cout << "          RESULTADO DA OTIMIZACAO           " << endl;
+                    cout << "          INICIANDO OTIMIZACAO...           " << endl;
                     cout << "=============================================" << endl;
 
                     try {
-                        Otimizador hillClimbing(catalogo, config);
-                        hillClimbing.executar(); // Assume-se que este método imprime a grade na tela
+                        Otimizador solver(catalogo, config);
+                        solver.executar();
                         
-                        cout << "\n=============================================" << endl;
-                        cout << ">> Processo concluido!" << endl;
-                        cout << ">> Pressione ENTER para reiniciar o sistema (limpar config)...";
+                        cout << "\n>> Processo concluido!" << endl;
+                        cout << ">> Pressione ENTER para reiniciar e limpar configuracoes...";
+                        limparBuffer(); cin.get();
                         
-                        limparBuffer(); 
-                        cin.get(); // Pausa para leitura
-
-                        sessaoAtiva = false; // <--- ISSO QUEBRA O LOOP INTERNO E REINICIA O PROGRAMA
+                        menuAtivo = false; // Sai do menu para reiniciar a sessão
                     } catch (const std::exception& e) {
-                        cerr << "\n[ERRO]: " << e.what() << endl;
+                        cerr << "\n[ERRO DE EXECUCAO]: " << e.what() << endl;
                     }
                     break;
                 }
 
                 case 5: {
-                    cout << "\n--- LISTA ATUAL ---" << endl;
-                    if (catalogo.empty()) cout << "Vazio." << endl;
+                    cout << "\n--- LISTA DE VOOS CADASTRADOS ---" << endl;
+                    if (catalogo.empty()) cout << "Nenhum voo cadastrado." << endl;
                     else {
-                        cout << "ID\t| DIF.\t| NOME" << endl;
-                        for (const auto& m : catalogo) {
-                            cout << m.getId() << "\t| " << m.getDificuldade() << "\t| " << m.getNome() << endl;
+                        cout << std::left << std::setw(6) << "ID" 
+                             << "| " << std::setw(15) << "ORIGEM" 
+                             << "-> " << std::setw(15) << "DESTINO" 
+                             << "| DURACAO" << endl;
+                        cout << "---------------------------------------------------------" << endl;
+                        
+                        for (const auto& v : catalogo) {
+                            // CHAMADA ESTÁTICA PARA Voo::getNomeAeroporto
+                            cout << std::left << std::setw(6) << v.getId() 
+                                 << "| " << std::setw(15) << Voo::getNomeAeroporto(v.getOrigem())
+                                 << "-> " << std::setw(15) << Voo::getNomeAeroporto(v.getDestino())
+                                 << "| " << v.getDuracao() << " min" << endl;
                         }
                     }
-                    cout << "\nEnter p/ voltar...";
+                    cout << "\nPressione ENTER para voltar...";
                     limparBuffer(); cin.get();
                     break;
                 }
 
                 case 6: { 
-                    if (catalogo.empty()) { cout << "Vazio." << endl; break; }
-                    cout << "\n--- REMOVER ---" << endl;
-                    for (const auto& m : catalogo) cout << "[" << m.getId() << "] " << m.getNome() << endl;
-                    unsigned long int idRemover;
-                    cout << "ID para apagar: ";
+                    if (catalogo.empty()) break;
+                    int idRemover;
+                    cout << "Digite o ID do voo para remover: ";
                     if (cin >> idRemover) {
                         bool achou = false;
                         for (auto it = catalogo.begin(); it != catalogo.end(); ++it) {
-                            if (it->getId() == idRemover) { catalogo.erase(it); achou = true; break; }
+                            if (it->getId() == idRemover) { 
+                                catalogo.erase(it); 
+                                achou = true; 
+                                break; 
+                            }
                         }
-                        if (achou) { reindexarESalvar(catalogo); cout << ">> Removido." << endl; }
-                        else cout << ">> ID nao encontrado." << endl;
+                        if (achou) { 
+                            reindexarESalvar(catalogo); 
+                            cout << ">> Voo removido e IDs reordenados." << endl; 
+                        } else {
+                            cout << ">> ID nao encontrado." << endl;
+                        }
                     } else limparBuffer();
                     break;
                 }
 
                 case 7: {
-                    char c; cout << "APAGAR TUDO? (s/n): "; cin >> c;
-                    if (c == 's' || c == 'S') { catalogo.clear(); salvarDados(catalogo); cout << ">> Resetado." << endl; }
+                    char c; cout << "TEM CERTEZA? Isso apagara todos os voos (s/n): "; cin >> c;
+                    if (c == 's' || c == 'S') { 
+                        catalogo.clear(); 
+                        salvarDados(catalogo); 
+                        cout << ">> Base de dados resetada." << endl; 
+                    }
                     break;
                 }
 
                 case 0:
-                    cout << "Encerrando sistema..." << endl;
-                    return 0; // Sai do programa completamente (encerra o while(true) principal)
+                    cout << "Saindo do sistema..." << endl;
+                    return 0; // Encerra o programa
 
                 default:
                     cout << "Opcao invalida!" << endl;
-            } // Fim Switch
-        } // Fim Loop Menu (sessaoAtiva)
-
-        // Ao sair do loop acima (após case 4), o código volta para o início do while(true),
-        // recriando 'Configuracao config' do zero.
+            } 
+        } 
+        
         cout << "\n\n... Reiniciando sistema ...\n\n";
 
-    } // Fim Loop Sessão
-
+    } // Fim do While Principal
     return 0;
 }

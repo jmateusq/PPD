@@ -19,3 +19,17 @@ bool Voo::operator==(const Voo& other) const {
 bool Voo::operator!=(const Voo& other) const {
     return !(*this == other);
 }
+
+std::string Voo::getNomeAeroporto(int id) {
+    switch(id) {
+        case 0: return "GRU";
+        case 1: return "MIA";
+        case 2: return "JFK";
+        case 3: return "LHR";
+        case 4: return "BSB";
+        case 5: return "SCL";
+        case 6: return "CDG";
+        case 7: return "DXB";
+        default: return "Aero_" + std::to_string(id);
+    }
+}

@@ -3,20 +3,18 @@
 #ifndef VOO_H
 #define VOO_H
 
-#include <string>
-#include <iostream>
-
+#include <string> // Necessário agora
 
 class Voo {
 private:
-    int id;           // ID único do voo
-    int origem;       // ID do aeroporto (0, 1, 2...)
-    int destino;      // ID do aeroporto (0, 1, 2...)
-    int duracao;      // Em minutos (peso para o score)
-    int custo;        // Opcional: Custo operacional
+    int id;
+    int origem;
+    int destino;
+    int duracao;
+    int custo;
 
 public:
-    Voo(); // Construtor padrão (Voo vazio/folga)
+    Voo(); 
     Voo(int id, int origem, int destino, int duracao);
 
     int getId() const;
@@ -24,9 +22,11 @@ public:
     int getDestino() const;
     int getDuracao() const;
 
-    // Sobrecarga para comparação rápida
     bool operator==(const Voo& other) const;
     bool operator!=(const Voo& other) const;
+
+    // --- NOVO: Método Estático Centralizado ---
+    static std::string getNomeAeroporto(int id);
 };
 
 #endif

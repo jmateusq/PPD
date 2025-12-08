@@ -18,8 +18,8 @@ std::string getNomeAeroporto(int id) {
 
 // Construtor
 Escala::Escala(const std::vector<Voo>& catalogoVoos, Configuracao Config) : config(Config) {
-    int totalSlots = config.getTotalSlots(); // Dias * VoosPorDia
-    slots.reserve(totalSlots); 
+    int totalSlots = (int)config.getTotalSlots(); // Dias * VoosPorDia
+    slots.reserve((unsigned long int)totalSlots); 
 
     // PREENCHIMENTO INICIAL
     // Estratégia: Preencher com voos aleatórios e alguns "buracos" (folgas)
