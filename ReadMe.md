@@ -1,33 +1,43 @@
-# Otimização de Horários de Estudo (Hill Climbing)
+# Airline Crew Rostering (Otimização de Escala de Tripulação)
 
-Este projeto é uma implementação em **C++ Orientado a Objetos** de um sistema para organização automática de grades de horários. 
+Este projeto é uma implementação em **C++** de um sistema para otimização de escalas de tripulação aérea (Crew Rostering). O objetivo é resolver um problema NP-Difícil de alocação de recursos, garantindo que voos sejam cobertos respeitando restrições geográficas e regulatórias.
 
-O objetivo é utilizar o algoritmo de busca local **Hill Climbing** (Subida de Encosta) com a estratégia de Reinícios Aleatórios para encontrar a distribuição de aulas que maximize a produtividade do estudante e minimize o cansaço mental, baseando-se em preferências personalizadas.
+O projeto foi desenvolvido para a disciplina de **Programação Paralela e Distribuída (PPD)**, demonstrando estratégias de escalabilidade utilizando **OpenMP (CPU Multicore)**, **CUDA (GPU)** e **MPI (Cluster/Distribuído)**.
 
-## 🧠 Heurística (Regras de Pontuação)
+## ✈️ O Problema (Domínio)
 
-A pontuação não é fixa; ela se adapta ao nível de dificuldade (0 a 3) que o usuário define para cada matéria. O algoritmo avalia a qualidade da grade com base nos seguintes critérios:
+Diferente de uma grade escolar estática, a escala de tripulação possui **Continuidade Geográfica**:
+1.  Se um piloto pousa em Miami (MIA), seu próximo voo *obrigatoriamente* deve partir de Miami.
+2.  Existem restrições rígidas de descanso e horas de voo.
+3.  O objetivo é maximizar as horas de voo produtivas e minimizar custos (como estadias em hotéis não planejadas ou "deadheads").
 
-1.  **Produtividade Matinal (+20):** Prioriza matérias de alta dificuldade (ex: Matemática, Física) no turno da manhã.
-2.  **Preservação Noturna (-20 / +10):** Penaliza matérias difíceis à noite e bonifica tempo livre para descanso.
-3.  **Variedade (-50):** Aplica penalidade severa caso a mesma disciplina se repita consecutivamente no mesmo dia (evita fadiga).
+## 🧠 Algoritmo e Heurística
 
-## 📂 Estrutura do Projeto
+Utilizamos o algoritmo de busca local **Hill Climbing** com **Random Restarts**:
+1.  **Geração Inicial:** Cria uma escala aleatória (respeitando minimamente as restrições ou totalmente caótica).
+2.  **Avaliação (Score):**
+    *   **+ Pontos:** Voos de alta prioridade cobertos.
+    *   **- Penalidade Infinita:** Quebra de rota (ex: GRU->MIA seguido de JFK->LHR).
+    *   **- Penalidade:** Excesso de jornada ou pouco descanso.
+3.  **Vizinhança:** Troca voos de tripulantes ou horários para tentar melhorar o score.
 
-O código original foi refatorado para seguir padrões de Orientação a Objetos:
+## 📂 Estrutura do Projeto (Refatorado)
 
-![alt text](diagrama_classes.png)
-
-
-*   **`Configuracao`**: Substitui as antigas constantes globais. Armazena as regras do "universo" definidas pelo usuário no menu inicial: quantidade de dias, turnos por dia e o número máximo de iterações do algoritmo.
-*   **`Grade`**: Representa um estado candidato da solução (o vetor de slots de tempo). É responsável por calcular seu próprio score (pontuação) consultando a dificuldade das matérias alocadas.
-*   **`Otimizador`**:  O "motor" do sistema. Recebe a Configuracao e o Catálogo de Matérias. Implementa o Hill Climbing e gerencia os Random Restarts (executa o algoritmo várias vezes para escapar de máximos locais).
-*   **`Materia`**: Classe que representa a disciplina. Além do ID e Nome, agora armazena a Dificuldade Personalizada (0-3), permitindo que o algoritmo trate a mesma matéria de forma diferente para usuários diferentes.
+*   **`Configuracao`**: Define o tamanho do problema (Número de Tripulantes, Voos disponíveis, Máximo de Iterações).
+*   **`Voo` (Antiga Materia)**: Representa um trecho aéreo. Contém:
+    *   `ID`, `Origem` (Aeroporto), `Destino` (Aeroporto), `Duração`.
+*   **`Escala` (Antiga Grade)**: Representa a linha de trabalho de um ou mais tripulantes. É responsável por validar a continuidade geográfica dos voos alocados.
+*   **`Otimizador`**: O motor de busca. Implementa as versões Sequencial, OpenMP e CUDA para encontrar a melhor escala.
 
 ## 🚀 Como Compilar e Executar
 
-Certifique-se de ter o docker instalado. No terminal, execute:
+### Pré-requisitos
+*   Docker (recomendado) ou GCC com suporte a OpenMP e NVCC (para CUDA).
 
+### Compilação (Sequencial/OpenMP)
 ```bash
-docker-compose run --rm otimizador
-```
+# Compilar
+g++ -o airline_opt *.cpp -fopenmp -O3
+
+# Executar
+./airline_opt
