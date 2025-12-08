@@ -2,53 +2,76 @@
 #include <cuda_runtime.h>
 #include <curand_kernel.h>
 #include <iostream>
+#include <ctime>
+#include <cstdio>
 
-#define MAX_SLOTS 200 // Limite seguro para alocação estática na stack da thread
+// --- DEFINIÇÕES INTERNAS ---
 
-// --- LÓGICA DE NEGÓCIO (DEVICE) ---
+#define MAX_SLOTS_GPU 400 
+
+#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true) {
+   if (code != cudaSuccess) {
+      fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+      if (abort) exit(code);
+   }
+}
+
+// --- DEVICE FUNCTIONS ---
+
 __device__ long long int calcularPontuacaoGPU(int* slots, const VooGPU* catalogo, int numSlots) {
     long long int score = 0;
     int localizacaoAtual = 0; // Base GRU
     
     for (int i = 0; i < numSlots; i++) {
         int idx = slots[i];
-        if (idx == -1) continue; // Folga
+        
+        if (idx == -1) {
+            score += 200; 
+            continue; 
+        }
 
         VooGPU v = catalogo[idx];
+        
         if (v.origem == localizacaoAtual) {
-            score += (v.duracao * 10);
+            score += (v.duracao * 20); 
             localizacaoAtual = v.destino;
         } else {
-            score -= 50000; // Penalidade Quebra
-            score -= 2000;  // Deadhead
+            score -= 50000; 
+            score -= 2000;  
             localizacaoAtual = v.destino;
         }
     }
-    if (localizacaoAtual != 0) score -= 5000;
+    
+    if (localizacaoAtual != 0) score -= 10000;
     return score;
 }
 
-// --- KERNEL ---
+// --- KERNEL GLOBAL ---
+
 __global__ void hillClimbingKernel(
     const VooGPU* catalogo, int tamCatalogo,
-    long long int* outScores,   // Saída: Score de cada thread
-    int* outEscalas,            // Saída: Vetor de escalas de TODAS as threads (GIGANTE)
+    long long int* outScores,   
+    int* outEscalas,            
     int numSlots, int maxIter, unsigned long seed
 ) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     
-    // Inicializa RNG
     curandState state;
     curand_init(seed, idx, 0, &state);
 
-    // Memória local rápida
-    int solucaoAtual[MAX_SLOTS];
-    int solucaoVizinha[MAX_SLOTS];
+    int solucaoAtual[MAX_SLOTS_GPU];
+    int solucaoVizinha[MAX_SLOTS_GPU];
 
-    // 1. Solução Inicial Aleatória
+    if (numSlots > MAX_SLOTS_GPU) return; 
+
+    // 1. Solução Inicial
     for(int i=0; i<numSlots; i++) {
-        if(curand_uniform(&state) < 0.3f) solucaoAtual[i] = -1;
-        else solucaoAtual[i] = curand(&state) % tamCatalogo;
+        if(curand_uniform(&state) < 0.2f) {
+            solucaoAtual[i] = -1;
+        } else {
+            solucaoAtual[i] = curand(&state) % tamCatalogo;
+        }
         solucaoVizinha[i] = solucaoAtual[i];
     }
 
@@ -56,24 +79,23 @@ __global__ void hillClimbingKernel(
 
     // 2. Loop de Otimização
     for(int k=0; k<maxIter; k++) {
-        // Mutação
-        int tipo = curand(&state) % 3;
+        int tipo = curand(&state) % 100;
         int slot = curand(&state) % numSlots;
-        int backup = solucaoVizinha[slot];
-
-        if(tipo == 0) solucaoVizinha[slot] = curand(&state) % tamCatalogo;
-        else if(tipo == 1) solucaoVizinha[slot] = -1;
-        else {
+        
+        if(tipo < 50) { 
+            solucaoVizinha[slot] = curand(&state) % tamCatalogo;
+        } else if(tipo < 70) { 
+            solucaoVizinha[slot] = -1;
+        } else { 
             int slot2 = curand(&state) % numSlots;
             int temp = solucaoVizinha[slot];
             solucaoVizinha[slot] = solucaoVizinha[slot2];
             solucaoVizinha[slot2] = temp;
-            // Nota: Swap simplificado (não reverte perfeitamente aqui por brevidade, mas funciona estocasticamente)
         }
 
         long long int scoreVizinho = calcularPontuacaoGPU(solucaoVizinha, catalogo, numSlots);
 
-        if(scoreVizinho > scoreAtual) {
+        if(scoreVizinho >= scoreAtual) {
             scoreAtual = scoreVizinho;
             for(int i=0; i<numSlots; i++) solucaoAtual[i] = solucaoVizinha[i];
         } else {
@@ -81,66 +103,80 @@ __global__ void hillClimbingKernel(
         }
     }
 
-    // 3. Salvar resultados na memória global
     outScores[idx] = scoreAtual;
-    
-    // Cada thread escreve sua escala na posição correta do "vetorzão" global
-    // Offset = idx * numSlots
+    int offset = idx * numSlots;
     for(int i=0; i<numSlots; i++) {
-        outEscalas[(idx * numSlots) + i] = solucaoAtual[i];
+        outEscalas[offset + i] = solucaoAtual[i];
     }
 }
 
-// --- WRAPPER (HOST) ---
+// --- IMPLEMENTAÇÃO DA FUNÇÃO WRAPPER (HOST) ---
+
 long long int rodarOtimizacaoCUDA(
     const std::vector<Voo>& catalogoHost,
     int numTentativas, int numSlots, int maxIter,
     std::vector<int>& melhorEscalaIndices
 ) {
-    // 1. Prepara Catálogo
-    std::vector<VooGPU> flatCat;
-    for(const auto& v : catalogoHost) 
-        flatCat.push_back({v.getId(), v.getOrigem(), v.getDestino(), v.getDuracao()});
+    if (numSlots > MAX_SLOTS_GPU) {
+        std::cerr << "ERRO CUDA: NumSlots (" << numSlots << ") > MAX_SLOTS_GPU (" << MAX_SLOTS_GPU << ")" << std::endl;
+        return -1;
+    }
 
-    // 2. Alocação
+    // 1. Preparar Dados do Catálogo
+    std::vector<VooGPU> flatCat;
+    flatCat.reserve(catalogoHost.size());
+    for(const auto& v : catalogoHost) {
+        flatCat.push_back({ (int)v.getId(), v.getOrigem(), v.getDestino(), v.getDuracao() });
+    }
+
+    // --- CORREÇÃO AQUI: Calcular dimensões ANTES de alocar ---
+    int threads = 256;
+    int blocks = (numTentativas + threads - 1) / threads;
+    int totalThreads = blocks * threads; // Sempre múltiplo de 256
+    
+    // std::cout << ">> [GPU] Grid: " << blocks << " blocos x " << threads << " threads = " << totalThreads << " total." << std::endl;
+
+    // 2. Alocar GPU (Usando totalThreads para evitar overflow)
     VooGPU* d_cat;
     long long int* d_scores;
     int* d_escalas;
 
     size_t szCat = flatCat.size() * sizeof(VooGPU);
-    size_t szScores = numTentativas * sizeof(long long int);
-    size_t szEscalas = numTentativas * numSlots * sizeof(int);
+    // IMPORTANTE: Alocar para totalThreads, não apenas numTentativas
+    size_t szScores = totalThreads * sizeof(long long int);
+    size_t szEscalas = totalThreads * numSlots * sizeof(int);
 
-    cudaMalloc(&d_cat, szCat);
-    cudaMalloc(&d_scores, szScores);
-    cudaMalloc(&d_escalas, szEscalas);
+    gpuErrchk(cudaMalloc(&d_cat, szCat));
+    gpuErrchk(cudaMalloc(&d_scores, szScores));
+    gpuErrchk(cudaMalloc(&d_escalas, szEscalas));
 
-    cudaMemcpy(d_cat, flatCat.data(), szCat, cudaMemcpyHostToDevice);
+    gpuErrchk(cudaMemcpy(d_cat, flatCat.data(), szCat, cudaMemcpyHostToDevice));
+    gpuErrchk(cudaMemset(d_scores, 0, szScores)); 
 
-    // 3. Execução
-    int threads = 256;
-    int blocks = (numTentativas + threads - 1) / threads;
+    // 3. Rodar Kernel
+    unsigned long seed = (unsigned long)time(NULL) + (unsigned long)clock();
+
+    hillClimbingKernel<<<blocks, threads>>>(
+        d_cat, (int)flatCat.size(), 
+        d_scores, d_escalas, 
+        numSlots, maxIter, seed
+    );
     
-    // Recalcula numTentativas real para bater com grid (evitar acesso fora de memória)
-    int totalThreads = blocks * threads;
+    gpuErrchk(cudaPeekAtLastError());
+    gpuErrchk(cudaDeviceSynchronize());
 
-    std::cout << ">> [GPU] Lancando " << blocks << " blocos (" << totalThreads << " threads pararelas)..." << std::endl;
-
-    hillClimbingKernel<<<blocks, threads>>>(d_cat, flatCat.size(), d_scores, d_escalas, numSlots, maxIter, time(NULL));
-    cudaDeviceSynchronize();
-
-    // 4. Recuperar Resultados
+    // 4. Copiar de volta (Agora os tamanhos batem!)
     std::vector<long long int> h_scores(totalThreads);
     std::vector<int> h_escalas(totalThreads * numSlots);
 
-    cudaMemcpy(h_scores.data(), d_scores, totalThreads * sizeof(long long int), cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_escalas.data(), d_escalas, totalThreads * numSlots * sizeof(int), cudaMemcpyDeviceToHost);
+    gpuErrchk(cudaMemcpy(h_scores.data(), d_scores, szScores, cudaMemcpyDeviceToHost));
+    gpuErrchk(cudaMemcpy(h_escalas.data(), d_escalas, szEscalas, cudaMemcpyDeviceToHost));
 
-    // 5. Redução na CPU (Achar o vencedor)
-    long long int melhorScore = -999999999999;
+    // 5. Redução (CPU)
+    long long int melhorScore = -9223372036854775800LL;
     int indiceVencedor = -1;
 
-    // Varremos apenas até numTentativas solicitado
+    // Iteramos apenas pelas tentativas úteis, ou totalThreads (tanto faz, as extras são lixo mas válidas em memória)
     for(int i=0; i<numTentativas; i++) {
         if(h_scores[i] > melhorScore) {
             melhorScore = h_scores[i];
@@ -148,7 +184,6 @@ long long int rodarOtimizacaoCUDA(
         }
     }
 
-    // 6. Extrair a escala vencedora
     melhorEscalaIndices.clear();
     if(indiceVencedor != -1) {
         int start = indiceVencedor * numSlots;

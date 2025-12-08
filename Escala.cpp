@@ -65,6 +65,8 @@ void Escala::atualizarPontuacao() {
     
     const int CUSTO_DEADHEAD_FIXO     = 2000;   // Ok.
 
+    const int LIMITE_REPETICAO_VOO = 3; // Máximo de vezes que um voo pode ser repetido sem penalidade
+
     // Mudei para loop com índice (i) para saber quando é o início do dia
     for (size_t i = 0; i < slots.size(); i++) {
         
