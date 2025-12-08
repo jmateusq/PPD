@@ -1,12 +1,16 @@
-# Usa a imagem oficial do GCC (Compilador C++)
-FROM gcc:latest
+# Usa a imagem oficial da NVIDIA com toolkit de desenvolvimento (nvcc incluído)
+# Ubuntu 22.04 e CUDA 12.3 (compatível com a maioria das placas modernas)
+FROM nvidia/cuda:12.3.1-devel-ubuntu22.04
 
-# Define a pasta de trabalho dentro do container
+# Instala o G++ (para o código C++ host) e Make (para compilar)
+RUN apt-get update && apt-get install -y \
+    g++ \
+    build-essential \
+    make \
+    && rm -rf /var/lib/apt/lists/*
+
+# Define o diretório de trabalho
 WORKDIR /usr/src/app
 
-# Copia os arquivos atuais para dentro (apenas para build inicial)
-COPY . .
-
-# O comando padrão será sobrescrito pelo docker-compose, 
-# mas deixamos um padrão aqui por boas práticas.
-CMD ["./otimizador"]
+# (Opcional) Copia os arquivos apenas se não usar volumes, 
+# mas seu docker-compose já cuida disso via volume.

@@ -126,6 +126,24 @@ void Escala::atualizarPontuacao() {
     this->pontuacao = score;
 }
 
+// Carrega a escala diretamente de um vetor de índices (usado para reconstruir após GPU)
+void Escala::carregarDeIndices(const std::vector<int>& indices, const std::vector<Voo>& catalogo) {
+    this->slots.clear();
+    for (int idx : indices) {
+        if (idx == -1) {
+            this->slots.push_back(Voo()); // Folga
+        } else {
+            // Cuidado: idx deve ser válido
+            if(idx >= 0 && idx < (int)catalogo.size()) {
+                this->slots.push_back(catalogo[idx]);
+            }
+        }
+    }
+    // Recalcula pontuação localmente apenas para garantir consistência dos dados exibidos
+    atualizarPontuacao(); 
+}
+
+// Gera Vizinho: Faz uma mutação na escala
 Escala Escala::gerarVizinho(const std::vector<Voo>& catalogoVoos) const {
     Escala vizinho(*this); 
     
