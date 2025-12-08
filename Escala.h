@@ -31,6 +31,9 @@ public:
 
     // Imprime a escala formatada
     void imprimir() const;
+
+    // Carrega a escala diretamente de um vetor de índices (usado para reconstruir após GPU)
+    void carregarDeIndices(const std::vector<int>& indices, const std::vector<Voo>& catalogo);
 };
 
 #endif

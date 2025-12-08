@@ -1,20 +1,27 @@
-version: '3.8'
 
 services:
   otimizador:
     build: .
-    image: otimizador-estudos
-    container_name: otimizador_container
+    image: otimizador-cuda
+    container_name: otimizador_cuda_container
     
-    # Mapeia a pasta atual para dentro do container.
-    # Assim, o arquivo .txt é salvo no seu PC e o código é lido daqui.
+    # Mapeia a pasta atual
     volumes:
       - .:/usr/src/app
     
-    # Habilita interatividade (essencial para usar cin/cout)
     stdin_open: true 
     tty: true
 
-    # Comando mágico: Compila todos os .cpp encontrados e executa
-    # O *.cpp pega automaticamente Configracao.cpp ou Configuracao.cpp
-    command: /bin/bash -c "g++ -Wall -Wextra -o otimizador *.cpp && ./otimizador"
+    # --- CONFIGURAÇÃO DA GPU ---
+    # Isso exige que você tenha o "NVIDIA Container Toolkit" instalado no host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1          # Quantas GPUs usar (ou 'all')
+              capabilities: [gpu]
+
+    # Comando: Limpa compilações antigas, roda o make e executa
+    # Assume que você criou o 'Makefile' que enviei na resposta anterior
+    command: /bin/bash -c "rm -f *.o otimizador_gpu && nvcc -O3 -c KernelOtimizador.cu -o KernelOtimizador.o && g++ -O3 -c *.cpp && nvcc -O3 *.o -o otimizador_gpu && ./otimizador_gpu"
