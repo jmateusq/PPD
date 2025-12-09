@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   otimizador:
     # Ajuste de contexto: Olhamos para a pasta pai (raiz do projeto)
