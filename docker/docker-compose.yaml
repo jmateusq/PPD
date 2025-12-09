@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  otimizador:
+    # Ajuste de contexto: Olhamos para a pasta pai (raiz do projeto)
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    
+    image: otimizador-cuda
+    container_name: otimizador_cuda_container
+    
+    # Mapeia a raiz do projeto (..) para a pasta de trabalho do container
+    volumes:
+      - ..:/usr/src/app
+    
+    stdin_open: true 
+    tty: true
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1          
+              capabilities: [gpu]
+
+    # --- COMANDO ATUALIZADO ---
+    # 1. Cria a pasta build se não existir
+    # 2. Compila os objetos (.o) na raiz para simplificar o g++ (wildcards)
+    # 3. O Linker (nvcc) joga o executável final dentro de /build
+    # 4. Removemos os .o temporários da raiz para não sujar
+    # 5. Executamos apontando para a pasta build
+    command: >
+      /bin/bash -c "
+      mkdir -p build && 
+      rm -f *.o build/otimizador_gpu && 
+      nvcc -c KernelOtimizador.cu -o KernelOtimizador.o && 
+      g++ -fopenmp -c *.cpp && 
+      nvcc -Xcompiler -fopenmp *.o -o build/otimizador_gpu -lgomp && 
+      rm -f *.o && 
+      ./build/otimizador_gpu"
