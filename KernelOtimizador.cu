@@ -7,14 +7,12 @@
 
 // --- DEFINIÇÕES E CONSTANTES ---
 
-// Limites de Memória (Stack da Thread)
 #define MAX_SLOTS_GPU  250
 #define MAX_CATALOGO_GPU 100
 
-// === PESOS SINCRONIZADOS COM Escala.cpp (CPU) ===
 #define BONUS_HORA_VOO          20
-#define BONUS_DESCANSO_CURTO    500    // Igual CPU
-#define PENALIDADE_QUEBRA       100000 // Igual CPU (Era 50000)
+#define BONUS_DESCANSO_CURTO    500
+#define PENALIDADE_QUEBRA       100000
 #define PENALIDADE_FADIGA       15000
 #define PENALIDADE_OCIOSIDADE   5000
 #define PENALIDADE_MANHA_OCIOSA 5000
@@ -22,16 +20,7 @@
 #define CUSTO_DEADHEAD_FIXO     2000
 #define LIMITE_REPETICAO_VOO    3
 
-#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
-inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true) {
-   if (code != cudaSuccess) {
-      fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
-      if (abort) exit(code);
-   }
-}
-
 // --- DEVICE FUNCTION: Lógica Idêntica à CPU ---
-
 __device__ long long int calcularPontuacaoGPU(
     int* slots, 
     const VooGPU* catalogo, 
@@ -113,7 +102,6 @@ __device__ long long int calcularPontuacaoGPU(
 }
 
 // --- KERNEL GLOBAL ---
-
 __global__ void hillClimbingKernel(
     const VooGPU* catalogo, int tamCatalogo,
     long long int* outScores,   
@@ -185,7 +173,6 @@ __global__ void hillClimbingKernel(
     }
 }
 
-// --- WRAPPER (HOST) ---
 
 long long int rodarOtimizacaoCUDA(
     const std::vector<Voo>& catalogoHost,
@@ -226,12 +213,12 @@ long long int rodarOtimizacaoCUDA(
     size_t szScores = totalThreads * sizeof(long long int);
     size_t szEscalas = totalThreads * numSlots * sizeof(int);
 
-    gpuErrchk(cudaMalloc(&d_cat, szCat));
-    gpuErrchk(cudaMalloc(&d_scores, szScores));
-    gpuErrchk(cudaMalloc(&d_escalas, szEscalas));
+    cudaMalloc(&d_cat, szCat);
+    cudaMalloc(&d_scores, szScores);
+    cudaMalloc(&d_escalas, szEscalas);
 
-    gpuErrchk(cudaMemcpy(d_cat, flatCat.data(), szCat, cudaMemcpyHostToDevice));
-    gpuErrchk(cudaMemset(d_scores, 0, szScores)); 
+    cudaMemcpy(d_cat, flatCat.data(), szCat, cudaMemcpyHostToDevice);
+    cudaMemset(d_scores, 0, szScores); 
 
     unsigned long seed = (unsigned long)time(NULL) + (unsigned long)clock();
 
@@ -242,16 +229,13 @@ long long int rodarOtimizacaoCUDA(
         numSlots, maxIter, seed,
         voosPorDia
     );
-    
-    gpuErrchk(cudaPeekAtLastError());
-    gpuErrchk(cudaDeviceSynchronize());
 
     // Recupera
     std::vector<long long int> h_scores(totalThreads);
     std::vector<int> h_escalas(totalThreads * numSlots);
 
-    gpuErrchk(cudaMemcpy(h_scores.data(), d_scores, szScores, cudaMemcpyDeviceToHost));
-    gpuErrchk(cudaMemcpy(h_escalas.data(), d_escalas, szEscalas, cudaMemcpyDeviceToHost));
+    cudaMemcpy(h_scores.data(), d_scores, szScores, cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_escalas.data(), d_escalas, szEscalas, cudaMemcpyDeviceToHost);
 
     // Redução CPU
     long long int melhorScore = -9223372036854775800LL;
