@@ -4,9 +4,9 @@
 #include <algorithm> 
 #include <ctime>     
 #include <random>
+#include <omp.h> // Necessário para OpenMP
 
 // Importante: Só inclui o header CUDA se for compilar com suporte a GPU
-// Se estiver usando apenas g++, o makefile deve tratar isso ou usamos #ifdef
 #include "KernelOtimizador.cuh" 
 
 using namespace std;
@@ -15,7 +15,6 @@ Otimizador::Otimizador(std::vector<Voo> &Catalogo, Configuracao &Config)
     : catalogo(Catalogo), config(Config) {
 }
 
-// Método auxiliar executado por uma thread (seja main ou worker do OpenMP)
 Escala Otimizador::rodarHillClimbingLocal(std::mt19937& rng) {
     Escala atual(catalogo, config, rng); 
     unsigned long int maxIter = config.getMaxIteracao();
@@ -32,11 +31,9 @@ Escala Otimizador::rodarHillClimbingLocal(std::mt19937& rng) {
 void Otimizador::executar() {
     unsigned long int nTentativas = config.getTentativas();
     
-    // Gerador dummy apenas para iniciar a variável de melhor escala
     std::mt19937 rngDummy(1234);
     Escala melhorGlobal(catalogo, config, rngDummy);
     
-    // Flag para garantir a primeira atualização
     bool primeiroUpdate = true;
     long long int scoreGlobal = -999999999; 
 
@@ -59,7 +56,6 @@ void Otimizador::executar() {
 
         cout << ">> GPU Finalizada. Score Estimado: " << scoreFinalGPU << endl;
 
-        // Reconstrói o objeto na CPU para impressão bonita
         Escala escalaFinal(catalogo, config, rngDummy); 
         escalaFinal.carregarDeIndices(indicesVencedores, catalogo);
         
@@ -73,49 +69,73 @@ void Otimizador::executar() {
     else if (config.getModoExecucao() == CPU_OPENMP) {
         cout << "----------------------------------------------------" << endl;
         cout << ">> MODO: CPU MULTICORE (OpenMP)" << endl;
-        cout << ">> Threads ativas: " << omp_get_max_threads() << endl;
+        
+        #ifdef _OPENMP
+            cout << ">> Threads ativas: " << omp_get_max_threads() << endl;
+        #else
+            cout << ">> AVISO: OpenMP nao detectado (Rodando single-core)!" << endl;
+        #endif
+        
         cout << "----------------------------------------------------" << endl;
 
-        // Diretiva OpenMP Parallel
+        // Variável compartilhada para contar o progresso total entre todas as threads
+        int progressoGlobal = 0;
+
         #pragma omp parallel 
         {
-            // Semente única por thread baseada no tempo + ID da thread
             unsigned int seed = (unsigned int)time(NULL) + (unsigned int)(omp_get_thread_num() * 1000);
             std::mt19937 rngLocal(seed);
 
-            // Cada thread mantém seu "melhor local" para evitar travar a região crítica a toda hora
             Escala melhorDaThread(catalogo, config, rngLocal);
             long long int melhorScoreThread = -99999999999;
             bool threadRodouPeloMenosUma = false;
 
-            // Divide o loop de tentativas entre as threads
             #pragma omp for
             for (unsigned long int t = 0; t < nTentativas; t++) {
                 
                 Escala resultadoTentativa = rodarHillClimbingLocal(rngLocal);
                 long long int scoreAtual = resultadoTentativa.getPontuacao();
 
+                // Atualiza o melhor local desta thread
                 if (!threadRodouPeloMenosUma || scoreAtual > melhorScoreThread) {
                     melhorScoreThread = scoreAtual;
                     melhorDaThread = resultadoTentativa;
                     threadRodouPeloMenosUma = true;
                 }
+
+                // --- LOGICA DE PROGRESSO (NOVO) ---
+                int meuProgresso;
+                // Incrementa atomicamente para saber quantos jobs já foram feitos no total
+                #pragma omp atomic capture
+                meuProgresso = ++progressoGlobal;
+
+                // A cada 50 tentativas globais, imprime um status
+                if (meuProgresso % 50 == 0 || meuProgresso == nTentativas) {
+                    #pragma omp critical (imprimir_cout) 
+                    {
+                        cout << "[OpenMP] Progresso: " << meuProgresso << "/" << nTentativas 
+                             << " concluidos..." << endl;
+                    }
+                }
             }
 
-            // Região Crítica: Apenas uma thread por vez atualiza o global
-            #pragma omp critical
+            // --- ATUALIZACAO DO GLOBAL ---
+            #pragma omp critical (atualizar_global)
             {
                 if (threadRodouPeloMenosUma) {
+                    // Verifica se essa thread tem algo melhor que o recorde global atual
                     if (primeiroUpdate || melhorScoreThread > scoreGlobal) {
                         melhorGlobal = melhorDaThread;
                         scoreGlobal = melhorScoreThread;
                         primeiroUpdate = false;
-                        // Opcional: cout pode bagunçar se muitas threads imprimirem, mas ajuda no debug
-                        // cout << "[Thread " << omp_get_thread_num() << "] Novo Recorde: " << scoreGlobal << endl;
+                        
+                        // Imprime sempre que achar um recorde novo
+                        cout << "[OpenMP] !!! NOVO RECORDE !!! (Thread " << omp_get_thread_num() 
+                             << ") Score: " << scoreGlobal << endl;
                     }
                 }
             }
-        } // Fim parallel
+        } 
     }
 
     // --- MODO 3: CPU SEQUENCIAL (SINGLE CORE) ---
@@ -131,27 +151,21 @@ void Otimizador::executar() {
             Escala melhorLocal = rodarHillClimbingLocal(rng);
             long long int scoreLocal = melhorLocal.getPontuacao();
 
-            // Lógica de Atualização do Melhor Global
             if (primeiroUpdate || scoreLocal > melhorGlobal.getPontuacao()) {
                 melhorGlobal = melhorLocal;
                 scoreGlobal = scoreLocal;
                 primeiroUpdate = false;
-                
-                // IMPRIME SEMPRE QUE MELHORAR
                 cout << "[Seq] !!! NOVO RECORDE !!! Tentativa " << (t+1) << " | Score: " << scoreLocal << endl;
             }
             
-            // Lógica de "Heartbeat" (Sinal de vida) a cada 10% ou 100 iterações
-            // Para você ver que o programa não travou se ficar muito tempo sem melhorar
+            // "Heartbeat" a cada 50 iterações
             if ((t + 1) % 50 == 0) { 
                 cout << "[Seq] Processando... " << (t+1) << "/" << nTentativas << " concluidas." << endl;
             }
         }
     }
 
-    // Impressão Final Comum (CPU e OpenMP)
     cout << "----------------------------------------------------" << endl;
     cout << "MELHOR RESULTADO FINAL:" << endl;
     melhorGlobal.imprimir();
 }
-
