@@ -8,8 +8,8 @@
 // --- DEFINIÇÕES E CONSTANTES ---
 
 // Limites de Memória (Stack da Thread)
-#define MAX_SLOTS_GPU 400 
-#define MAX_CATALOGO_GPU 200 // Aumentei para 200 para segurança
+#define MAX_SLOTS_GPU  250
+#define MAX_CATALOGO_GPU 100
 
 // === PESOS SINCRONIZADOS COM Escala.cpp (CPU) ===
 #define BONUS_HORA_VOO          20
