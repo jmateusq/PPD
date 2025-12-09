@@ -11,6 +11,3 @@ RUN apt-get update && apt-get install -y \
 
 # Define o diretório de trabalho
 WORKDIR /usr/src/app
-
-# (Opcional) Copia os arquivos apenas se não usar volumes, 
-# mas seu docker-compose já cuida disso via volume.

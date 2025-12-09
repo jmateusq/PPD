@@ -1,0 +1,17 @@
+# Ignorar arquivos de compilação intermediários
+*.o
+*.obj
+
+# Ignorar a pasta de build inteira
+build/
+
+# Ignorar executáveis (caso algum escape da pasta build)
+otimizador_gpu
+otimizador
+*.exe
+*.out
+
+# Ignorar arquivos do sistema/IDE
+.vscode/
+.idea/
+.DS_Store
