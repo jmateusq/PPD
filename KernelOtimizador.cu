@@ -240,14 +240,9 @@ long long int rodarOtimizacaoCUDA(
     cudaMemcpy(&h_bestScore, d_globalBestScore, sizeof(long long int), cudaMemcpyDeviceToHost);
     cudaMemcpy(&h_bestIndex, d_globalBestIndex, sizeof(int), cudaMemcpyDeviceToHost);
 
-    melhorEscalaIndices.clear();
-    if (h_bestIndex != -1) {
-        melhorEscalaIndices.resize(numSlots);
-        int* d_bestEscalaPtr = d_escalas + (h_bestIndex * numSlots);
-
-        cudaMemcpy(melhorEscalaIndices.data(), d_bestEscalaPtr,
-                   numSlots * sizeof(int), cudaMemcpyDeviceToHost);
-    }
+    melhorEscalaIndices.resize(numSlots);
+    int* d_bestEscalaPtr = d_escalas + (h_bestIndex * numSlots);
+    cudaMemcpy(melhorEscalaIndices.data(), d_bestEscalaPtr, numSlots * sizeof(int), cudaMemcpyDeviceToHost);
 
     cudaFree(d_cat);
     cudaFree(d_escalas);
