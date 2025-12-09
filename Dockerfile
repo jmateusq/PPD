@@ -1,16 +1,34 @@
-# Usa a imagem oficial da NVIDIA com toolkit de desenvolvimento (nvcc incluído)
-# Ubuntu 22.04 e CUDA 12.3 (compatível com a maioria das placas modernas)
-FROM nvidia/cuda:12.3.1-devel-ubuntu22.04
+version: '3.8'
 
-# Instala o G++ (para o código C++ host) e Make (para compilar)
-RUN apt-get update && apt-get install -y \
-    g++ \
-    build-essential \
-    make \
-    && rm -rf /var/lib/apt/lists/*
+services:
+  otimizador:
+    build: .
+    image: otimizador-cuda
+    container_name: otimizador_cuda_container
+    
+    # Mapeia a pasta atual
+    volumes:
+      - .:/usr/src/app
+    
+    stdin_open: true 
+    tty: true
 
-# Define o diretório de trabalho
-WORKDIR /usr/src/app
+    # --- CONFIGURAÇÃO DA GPU ---
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1          
+              capabilities: [gpu]
 
-# (Opcional) Copia os arquivos apenas se não usar volumes, 
-# mas seu docker-compose já cuida disso via volume.
+    # --- COMANDO DE COMPILAÇÃO E EXECUÇÃO ---
+    # Removido -O3 de todas as etapas.
+    # Mantido -fopenmp no g++ e -lgomp no link final (nvcc)
+    command: >
+      /bin/bash -c "
+      rm -f *.o otimizador_gpu && 
+      nvcc -c KernelOtimizador.cu -o KernelOtimizador.o && 
+      g++ -fopenmp -c *.cpp && 
+      nvcc *.o -o otimizador_gpu -lgomp && 
+      ./otimizador_gpu"

@@ -1,3 +1,4 @@
+version: '3.8'
 
 services:
   otimizador:
@@ -13,15 +14,21 @@ services:
     tty: true
 
     # --- CONFIGURAÇÃO DA GPU ---
-    # Isso exige que você tenha o "NVIDIA Container Toolkit" instalado no host
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: 1          # Quantas GPUs usar (ou 'all')
+              count: 1          
               capabilities: [gpu]
 
-    # Comando: Limpa compilações antigas, roda o make e executa
-    # Assume que você criou o 'Makefile' que enviei na resposta anterior
-    command: /bin/bash -c "rm -f *.o otimizador_gpu && nvcc -O3 -c KernelOtimizador.cu -o KernelOtimizador.o && g++ -O3 -c *.cpp && nvcc -O3 *.o -o otimizador_gpu && ./otimizador_gpu"
+    # --- COMANDO DE COMPILAÇÃO E EXECUÇÃO ---
+    # Removido -O3 de todas as etapas.
+    # Mantido -fopenmp no g++ e -lgomp no link final (nvcc)
+    command: >
+      /bin/bash -c "
+      rm -f *.o otimizador_gpu && 
+      nvcc -c KernelOtimizador.cu -o KernelOtimizador.o && 
+      g++ -fopenmp -c *.cpp && 
+      nvcc *.o -o otimizador_gpu -lgomp && 
+      ./otimizador_gpu"

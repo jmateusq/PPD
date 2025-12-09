@@ -1,20 +1,27 @@
 #include "Escala.h"
-#include <cstdlib> 
 #include <algorithm> 
 #include <iomanip> 
 #include <map> 
+#include <random> // Necessário para as distribuições
 
-// Construtor
-Escala::Escala(const std::vector<Voo>& catalogoVoos, Configuracao Config) : config(Config) {
+// Construtor: Agora recebe o RNG (Random Number Generator)
+Escala::Escala(const std::vector<Voo>& catalogoVoos, Configuracao Config, std::mt19937& rng) : config(Config) {
     int totalSlots = (int)config.getTotalSlots(); 
     slots.reserve((unsigned long int)totalSlots); 
 
+    // Cria distribuições para gerar números no intervalo desejado
+    std::uniform_int_distribution<int> distPorcentagem(0, 99);
+    
+    // Se o catálogo estiver vazio, evita erro de divisão por zero na distribuição
+    int maxCatalogo = catalogoVoos.empty() ? 0 : (int)catalogoVoos.size() - 1;
+    std::uniform_int_distribution<int> distCatalogo(0, maxCatalogo);
+
     for (int i = 0; i < totalSlots; i++) {
-        // 20% Folga, 80% Voo (Começa bem preenchido)
-        if ((rand() % 100) < 20) {
-            slots.push_back(Voo()); 
+        // 20% de chance de ser Folga (buraco), 80% de ser Voo
+        if (distPorcentagem(rng) < 20 || catalogoVoos.empty()) {
+            slots.push_back(Voo()); // Voo vazio (Folga)
         } else {
-            int idx = rand() % catalogoVoos.size();
+            int idx = distCatalogo(rng);
             slots.push_back(catalogoVoos[idx]);
         }
     }
@@ -46,28 +53,24 @@ void Escala::atualizarPontuacao() {
     int voosPorDia = config.getVoosPorDia();
 
     // --- PESOS E PENALIDADES ---
-    const int BONUS_HORA_VOO          = 20;   // Mantém (Base do cálculo)
-    const int BONUS_DESCANSO_CURTO    = 500;  // Aumentaria um pouco para incentivar recargas estratégicas
+    const int BONUS_HORA_VOO          = 20;   
+    const int BONUS_DESCANSO_CURTO    = 500; 
 
-    // --- HARD CONSTRAINTS (Coisas impossíveis ou ilegais) ---
-    // Devem ser ordens de magnitude maiores que qualquer ganho
-    const int PENALIDADE_QUEBRA       = 100000; // Aumentar! Teletransporte é inaceitável.
+    // Hard Constraints
+    const int PENALIDADE_QUEBRA       = 100000; 
     
-    // --- SAFETY CONSTRAINTS (Regras de segurança) ---
-    // Devem ser maiores que o ganho do voo mais longo (ex: > 12.000)
-    const int PENALIDADE_FADIGA       = 15000;  // Aumentar! Jamais vale a pena voar cansado.
+    // Safety Constraints
+    const int PENALIDADE_FADIGA       = 15000;  
     
-    // --- SOFT CONSTRAINTS (Qualidade de vida / Preferência da empresa) ---
-    // Podem ser menores, negociáveis com a produtividade
-    const int PENALIDADE_REPETICAO    = 8000;   // Aumentar. Repetir 4x é muito chato.
-    const int PENALIDADE_OCIOSIDADE   = 5000;   // Bom valor.
-    const int PENALIDADE_MANHA_OCIOSA = 5000;   // Bom valor (equivalente a perder um voo médio).
+    // Soft Constraints
+    const int PENALIDADE_REPETICAO    = 8000;   
+    const int PENALIDADE_OCIOSIDADE   = 5000;   
+    const int PENALIDADE_MANHA_OCIOSA = 5000;   
     
-    const int CUSTO_DEADHEAD_FIXO     = 2000;   // Ok.
+    const int CUSTO_DEADHEAD_FIXO     = 2000;   
 
-    const int LIMITE_REPETICAO_VOO = 3; // Máximo de vezes que um voo pode ser repetido sem penalidade
+    const int LIMITE_REPETICAO_VOO = 3; 
 
-    // Mudei para loop com índice (i) para saber quando é o início do dia
     for (size_t i = 0; i < slots.size(); i++) {
         
         Voo voo = slots[i];
@@ -80,7 +83,7 @@ void Escala::atualizarPontuacao() {
             voosSeguidos = 0; 
             folgasSeguidas++; 
 
-            // 1. Regra da Manhã Ociosa (NOVO)
+            // 1. Regra da Manhã Ociosa
             if (inicioDoDia) {
                 score -= PENALIDADE_MANHA_OCIOSA;
             }
@@ -120,7 +123,7 @@ void Escala::atualizarPontuacao() {
         localizacaoAtual = voo.getDestino();
     }
     
-    // Regra Final: Base
+    // Regra Final: Base (deve terminar em GRU = 0)
     if (localizacaoAtual != 0) {
         score -= 10000; 
     }
@@ -141,20 +144,25 @@ void Escala::carregarDeIndices(const std::vector<int>& indices, const std::vecto
             }
         }
     }
-    // Recalcula pontuação localmente apenas para garantir consistência dos dados exibidos
     atualizarPontuacao(); 
 }
 
-// Gera Vizinho: Faz uma mutação na escala
-Escala Escala::gerarVizinho(const std::vector<Voo>& catalogoVoos) const {
+// Gera Vizinho: Faz uma mutação na escala usando o RNG passado
+Escala Escala::gerarVizinho(const std::vector<Voo>& catalogoVoos, std::mt19937& rng) const {
     Escala vizinho(*this); 
     
-    int tipoMutacao = rand() % 100; 
-    unsigned long idx = rand() % vizinho.slots.size();
+    if (catalogoVoos.empty()) return vizinho;
 
-    // Ajustei as probabilidades para favorecer a troca de voos (ajuda na variedade)
+    // Distribuições
+    std::uniform_int_distribution<int> distMutacao(0, 99);
+    std::uniform_int_distribution<int> distSlot(0, (int)vizinho.slots.size() - 1);
+    std::uniform_int_distribution<int> distCatalogo(0, (int)catalogoVoos.size() - 1);
+
+    int tipoMutacao = distMutacao(rng); 
+    unsigned long idx = distSlot(rng);
+
     if (tipoMutacao < 50) { // 50% chance: Trocar Voo
-        int idxVoo = rand() % catalogoVoos.size();
+        int idxVoo = distCatalogo(rng);
         vizinho.slots[idx] = catalogoVoos[idxVoo];
     } 
     else if (tipoMutacao < 70) { // 20%: Criar Folga
@@ -162,12 +170,12 @@ Escala Escala::gerarVizinho(const std::vector<Voo>& catalogoVoos) const {
     }
     else if (tipoMutacao < 85) { // 15%: Remover Folga
         if (vizinho.slots[idx].getId() == -1) {
-            int idxVoo = rand() % catalogoVoos.size();
+            int idxVoo = distCatalogo(rng);
             vizinho.slots[idx] = catalogoVoos[idxVoo];
         }
     }
-    else { // 15%: Swap
-        unsigned long idx2 = rand() % vizinho.slots.size();
+    else { // 15%: Swap (Troca dois slots de lugar)
+        unsigned long idx2 = distSlot(rng);
         std::swap(vizinho.slots[idx], vizinho.slots[idx2]);
     }
     
@@ -196,7 +204,6 @@ void Escala::imprimir() const {
     int voosSeguidos = 0;
     int folgasSeguidas = 0;
     
-    // Mapa auxiliar apenas para visualização de repetidos na impressão
     std::map<int, int> countView;
 
     for (size_t i = 0; i < slots.size(); i++) {
@@ -217,7 +224,6 @@ void Escala::imprimir() const {
             voosSeguidos = 0;
             std::cout << "      ---   REPOUSO   ---         |   ---   | FOLGA        |";
             
-            // Visualização das flags
             bool obs = false;
             if (inicioDoDia) { std::cout << " ! PREGUICA"; obs = true; }
             if (folgasSeguidas > 2) { std::cout << " ! OCIO"; obs = true; }

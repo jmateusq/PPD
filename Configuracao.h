@@ -3,13 +3,20 @@
 
 #include <stdexcept>
 
+// Enum para facilitar a leitura do modo de execução
+enum ModoExecucao {
+    CPU_SEQUENCIAL = 0,
+    CPU_OPENMP = 1,
+    GPU_CUDA = 2
+};
+
 class Configuracao {
 private:
-    int numDias;             // Quantos dias a escala cobre (horizonte de planejamento)
-    int voosPorDia;          // Máximo de slots de voo por dia (normalmente 1 a 4)
+    int numDias;             
+    int voosPorDia;          
     unsigned long int maxIteracoes; 
     unsigned long int tentativas;
-    bool usarGPU;  
+    ModoExecucao modo; // Novo campo para controlar os 3 modos
 
 public:
     Configuracao();
@@ -20,20 +27,16 @@ public:
     int getVoosPorDia() const;
     unsigned long int getMaxIteracao() const;
     unsigned long int getTentativas() const;
-    bool getUsarGPU() const;
+    ModoExecucao getModoExecucao() const;
     
-    // Helper para saber o tamanho total do vetor da escala
     int getTotalSlots() const;
 
-    
-        
-
-    // Setters com validação
+    // Setters
     void setDias(int dias);
     void setVoosPorDia(int vpd);
     void setMaxIteracoes(unsigned long int maxIteracoes);
     void setTentativas(unsigned long int t);
-    void setUsarGPU(bool usar); 
+    void setModoExecucao(int m); // 0, 1 ou 2
 };
 
 #endif
