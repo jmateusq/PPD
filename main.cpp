@@ -160,18 +160,23 @@ int main() {
                 }
 
                 case 3: {
-                    cout << "\n--- CONFIGURACAO DE PRECISAO ---" << endl;
+                    cout << "\n--- CONFIGURACAO DE ALGORITMO ---" << endl;
                     unsigned long int tentativas, iteracoes;
+                    int tipoExec;
 
-                    cout << "1. Tentativas (Restarts) - Quantas escalas gerar do zero? ";
+                    cout << "1. Tentativas (Restarts): ";
                     cin >> tentativas;
-                    try { config.setTentativas(tentativas); } catch(...) {}
+                    config.setTentativas(tentativas);
 
-                    cout << "2. Iteracoes por Tentativa - Quantas trocas testar? ";
+                    cout << "2. Iteracoes por Tentativa: ";
                     cin >> iteracoes;
-                    try { config.setMaxIteracoes(iteracoes); } catch(...) {}
+                    config.setMaxIteracoes(iteracoes);
+
+                    cout << "3. Modo de Execucao (0 = CPU, 1 = GPU): ";
+                    cin >> tipoExec;
+                    config.setUsarGPU(tipoExec == 1);
                     
-                    cout << ">> Configurado: " << config.getTentativas() * config.getMaxIteracao() << " avaliacoes totais." << endl;
+                    cout << ">> Configurado: " << (config.getUsarGPU() ? "GPU CUDA" : "CPU Sequencial") << endl;
                     break;
                 }
 

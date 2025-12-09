@@ -1,7 +1,7 @@
 #include "Configuracao.h"
 #include <stdexcept>
 
-Configuracao::Configuracao() : numDias(0), voosPorDia(0), maxIteracoes(0), tentativas(1) {}
+Configuracao::Configuracao() : numDias(0), voosPorDia(0), maxIteracoes(0), tentativas(1), usarGPU(false){}
 
 Configuracao::Configuracao(int Dias, int VoosDia, unsigned long int MaxIter, unsigned long int Tent) {
     setDias(Dias);
@@ -28,6 +28,14 @@ void Configuracao::setMaxIteracoes(unsigned long int MaxIteracoes) {
 void Configuracao::setTentativas(unsigned long int t) { 
     if(t < 1) throw std::invalid_argument("Tentativas deve ser >= 1");
     this->tentativas = t; 
+}
+
+void Configuracao::setUsarGPU(bool usar) {
+    this->usarGPU = usar;
+}
+
+bool Configuracao::getUsarGPU() const {
+    return this->usarGPU;
 }
 
 int Configuracao::getDias() const { return numDias; }
