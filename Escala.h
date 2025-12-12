@@ -33,6 +33,8 @@ public:
 
     // Carrega a escala diretamente de um vetor de índices (usado pela GPU)
     void carregarDeIndices(const std::vector<int>& indices, const std::vector<Voo>& catalogo);
+
+    std::vector<int> exportarIndices() const;
 };
 
 #endif

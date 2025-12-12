@@ -7,6 +7,8 @@ RUN apt-get update && apt-get install -y \
     g++ \
     build-essential \
     make \
+    openmpi-bin \
+    libopenmpi-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Define o diretório de trabalho

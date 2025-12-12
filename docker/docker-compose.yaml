@@ -1,14 +1,12 @@
 services:
   otimizador:
-    # Ajuste de contexto: Olhamos para a pasta pai (raiz do projeto)
     build:
       context: ..
       dockerfile: docker/Dockerfile
     
-    image: otimizador-cuda
-    container_name: otimizador_cuda_container
+    image: otimizador-cuda-mpi
+    container_name: otimizador_cuda_mpi_container
     
-    # Mapeia a raiz do projeto (..) para a pasta de trabalho do container
     volumes:
       - ..:/usr/src/app
     
@@ -23,18 +21,13 @@ services:
               count: 1          
               capabilities: [gpu]
 
-    # --- COMANDO ATUALIZADO ---
-    # 1. Cria a pasta build se não existir
-    # 2. Compila os objetos (.o) na raiz para simplificar o g++ (wildcards)
-    # 3. O Linker (nvcc) joga o executável final dentro de /build
-    # 4. Removemos os .o temporários da raiz para não sujar
-    # 5. Executamos apontando para a pasta build
+    # --- COMANDO ATUALIZADO PARA MPI + CUDA + OPENMP ---
     command: >
       /bin/bash -c "
       mkdir -p build && 
-      rm -f *.o build/otimizador_gpu && 
+      rm -f *.o build/otimizador_hibrido && 
       nvcc -c KernelOtimizador.cu -o KernelOtimizador.o && 
-      g++ -fopenmp -c *.cpp && 
-      nvcc -Xcompiler -fopenmp *.o -o build/otimizador_gpu -lgomp && 
+      mpic++ -O3 -fopenmp -c *.cpp && 
+      mpic++ -O3-fopenmp *.o -o build/otimizador_hibrido -L/usr/local/cuda/lib64 -lcudart && 
       rm -f *.o && 
-      ./build/otimizador_gpu"
+      mpirun --allow-run-as-root -np 6 ./build/otimizador_hibrido"

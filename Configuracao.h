@@ -7,7 +7,8 @@
 enum ModoExecucao {
     CPU_SEQUENCIAL = 0,
     CPU_OPENMP = 1,
-    GPU_CUDA = 2
+    GPU_CUDA = 2,
+    CPU_MPI = 3
 };
 
 class Configuracao {

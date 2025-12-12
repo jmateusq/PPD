@@ -249,3 +249,12 @@ void Escala::imprimir() const {
     }
     std::cout << "-----------------------------------------------------------------------------\n";
 }
+
+std::vector<int> Escala::exportarIndices() const {
+    std::vector<int> indices;
+    indices.reserve(slots.size());
+    for(const auto& v : slots) {
+        indices.push_back(v.getId());
+    }
+    return indices;
+}
