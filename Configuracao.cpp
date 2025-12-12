@@ -32,7 +32,7 @@ void Configuracao::setTentativas(unsigned long int t) {
 }
 
 void Configuracao::setModoExecucao(int m) {
-    if (m < 0 || m > 2) throw std::invalid_argument("Modo invalido (0=Seq, 1=OpenMP, 2=CUDA)");
+    if (m < 0 || m > 3) throw std::invalid_argument("Modo invalido (0=Seq, 1=OpenMP, 2=CUDA)");
     this->modo = static_cast<ModoExecucao>(m);
 }
 

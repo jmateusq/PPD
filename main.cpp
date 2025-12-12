@@ -246,8 +246,6 @@ int main(int argc, char** argv) {
                             cout << "Pressione ENTER para continuar...";
                             limparBuffer(); cin.get();
                         }
-                        
-                        menuAtivo = false; 
 
                     } catch (const std::exception& e) {
                         if(rank == 0) cerr << "Erro: " << e.what() << endl;

@@ -130,35 +130,20 @@ void Otimizador::executar() {
         long long int globalMaxScore;
         MPI_Allreduce(&melhorScoreLocal, &globalMaxScore, 1, MPI_LONG_LONG, MPI_MAX, MPI_COMM_WORLD);
 
-        // Quem venceu?
-        // Nota: Pode haver empate. O primeiro rank que tiver o score igual ao global envia.
-        int souVencedor = (melhorScoreLocal == globalMaxScore) ? 1 : 0;
+        // PASSO 2: Descobrir QUEM é o dono desse score (Desempate pelo menor Rank)
+        // Se meu score é igual ao máximo, eu sou um candidato.
+        int souCandidato = (melhorScoreLocal == globalMaxScore) ? 1 : 0;
         
-        // Precisamos eleger UM único vencedor para imprimir, caso haja empate
-        // Usamos EXSCAN ou lógica simples: Rank mais baixo vence empates
-        // Vamos fazer o rank 0 receber de quem tiver o ID.
-        
-        // Estratégia simples:
-        // Se eu sou vencedor, mando meus dados para o Rank 0.
-        // Se Rank 0 for vencedor, ele já tem os dados.
-        // Se multiplos vencerem, todos mandam? Isso daria colisão.
-        // Solução: Gather de (Score, Rank) e Rank 0 decide.
-        
-        struct {
-            long long val;
-            int rank;
-        } in, out;
+        // Se sou candidato, envio meu Rank. Se não, envio um valor gigante (MAX_INT) para perder na comparação MIN.
+        int meuRankParaCompeticao = souCandidato ? rank : 2147483647; 
+        int rankVencedor;
 
-        in.val = melhorScoreLocal;
-        in.rank = rank;
-
-        MPI_Allreduce(&in, &out, 1, MPI_LONG_LONG_INT, MPI_MAXLOC, MPI_COMM_WORLD);
-        
-        int rankVencedor = out.rank;
+        // Quem tiver o menor rank entre os candidatos vence (MPI_MIN com inteiros é seguro)
+        MPI_Allreduce(&meuRankParaCompeticao, &rankVencedor, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);;
         
         if (rank == 0) {
             cout << "----------------------------------------------------" << endl;
-            cout << ">> MPI Finalizado. Melhor Score: " << out.val << " (Encontrado pelo Rank " << rankVencedor << ")" << endl;
+            cout << ">> MPI Finalizado. Melhor Score: " << globalMaxScore << " (Encontrado pelo Rank " << rankVencedor << ")" << endl;
         }
 
         // Recuperar a Escala Vencedora
