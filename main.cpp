@@ -174,15 +174,6 @@ int main(int argc, char** argv) {
                     if (rank == 0) {
                         catalogo.push_back(Voo((int)catalogo.size(), dados[0], dados[1], dados[2])); 
                         salvarDados(catalogo);
-                    } else {
-                        // IDs precisam estar sincronizados. O rank 0 salvou e o ID baseia-se no size atual.
-                        // Assumimos que catalogo está sincronizado.
-                        // Para garantir total consistência, vamos fazer um Sync completo no inicio de Executar.
-                        // Mas aqui podemos adicionar localmente também.
-                        // Porem, se rank 0 leu do arquivo no inicio e rank 1 nao, rank 1 tem catalogo vazio.
-                        // ESTRATÉGIA: Sincronizar catálogo APENAS antes da execução (Case 4).
-                        // Então aqui, só Rank 0 precisa atualizar o arquivo.
-                    }
                     break;
                 }
                 case 2: {
