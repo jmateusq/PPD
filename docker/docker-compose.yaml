@@ -28,6 +28,6 @@ services:
       rm -f *.o build/otimizador_hibrido && 
       nvcc -c KernelOtimizador.cu -o KernelOtimizador.o && 
       mpic++ -O3 -fopenmp -c *.cpp && 
-      mpic++ -O3-fopenmp *.o -o build/otimizador_hibrido -L/usr/local/cuda/lib64 -lcudart && 
+      mpic++ -O3 -fopenmp *.o -o build/otimizador_hibrido -L/usr/local/cuda/lib64 -lcudart && 
       rm -f *.o && 
       mpirun --allow-run-as-root -np 6 ./build/otimizador_hibrido"
